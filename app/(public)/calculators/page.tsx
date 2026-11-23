@@ -13,12 +13,15 @@ import {
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: 'Financial Calculators & Wealth Tools – SIP, EMI, Tax, PPF, FD | The Stock Times',
+  title: 'Wealth Management Tools & Financial Calculators – SIP, EMI, Tax, PPF | The Stock Times',
   description:
-    'Free interactive financial calculators for SIP, Lumpsum, SWP, EMI, Income Tax, PPF, EPF, FD, RD, GST, and Stock Averaging.',
+    'Free interactive wealth management tools and financial calculators for SIP, Lumpsum compounding, Loan EMI, Income Tax, PPF, EPF, FD, RD, and Stock Averaging.',
+  alternates: {
+    canonical: 'https://thestocktimes.online/calculators',
+  },
 };
 
-export default async function ToolsDirectoryPage() {
+export default async function CalculatorsDirectoryPage() {
   const db = getDb();
 
   const trendingArticles = db
@@ -38,7 +41,7 @@ export default async function ToolsDirectoryPage() {
       <nav className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
         <Link href="/" className="hover:text-blue-600">Home</Link>
         <span>/</span>
-        <span className="text-blue-600">Finance Tools</span>
+        <span className="text-blue-600">Wealth Management Tools</span>
       </nav>
 
       {/* ✅ MASTER AD SLOT 1: TOP LEADERBOARD */}
@@ -48,17 +51,17 @@ export default async function ToolsDirectoryPage() {
       <section className="bg-[#0B1C2D] text-white rounded-2xl p-5 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
         <div className="space-y-2 max-w-2xl">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-emerald-400 text-slate-950 text-[10px] font-extrabold uppercase">
-            <Sparkles className="w-3 h-3" /> Wealth & Tax Suite
+            <Sparkles className="w-3 h-3" /> Wealth &amp; Investment Suite
           </span>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold">
-            Finance Tools & Interactive Wealth Calculators
+            Wealth Management Tools &amp; Financial Calculators
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Plan mutual fund SIPs, retirement corpus, loan EMIs, tax savings, and stock average prices with real-time visual breakdowns.
+            Plan mutual fund SIPs, retirement corpus, loan EMIs, tax savings, and stock average prices with real-time visual compounding breakdowns.
           </p>
         </div>
         <Link
-          href="/tools/sip-calculator"
+          href="/calculators/sip-calculator"
           className="shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold uppercase tracking-wider transition"
         >
           Launch SIP Calculator <ArrowRight className="w-4 h-4" />
@@ -75,10 +78,10 @@ export default async function ToolsDirectoryPage() {
             <div className="flex items-center gap-2">
               <Calculator className="w-4 h-4 text-emerald-600" />
               <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-                All Finance Tools & Tax Calculators ({FINANCIAL_TOOLS.length})
+                All Wealth Management Tools ({FINANCIAL_TOOLS.length})
               </h2>
             </div>
-            <span className="text-[11px] text-slate-500">100% Free & Instant</span>
+            <span className="text-[11px] text-slate-500">100% Free &amp; Instant</span>
           </div>
 
           {/* First 6 Calculators */}
@@ -86,7 +89,7 @@ export default async function ToolsDirectoryPage() {
             {FINANCIAL_TOOLS.slice(0, 6).map((tool) => (
               <Link
                 key={tool.slug}
-                href={`/tools/${tool.slug}`}
+                href={`/calculators/${tool.slug}`}
                 className="group bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 hover:shadow-md hover:border-blue-400 transition flex flex-col justify-between space-y-3"
               >
                 <div className="space-y-1.5">
@@ -116,7 +119,7 @@ export default async function ToolsDirectoryPage() {
               {FINANCIAL_TOOLS.slice(6).map((tool) => (
                 <Link
                   key={tool.slug}
-                  href={`/tools/${tool.slug}`}
+                  href={`/calculators/${tool.slug}`}
                   className="group bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 hover:shadow-md hover:border-blue-400 transition flex flex-col justify-between space-y-3"
                 >
                   <div className="space-y-1.5">

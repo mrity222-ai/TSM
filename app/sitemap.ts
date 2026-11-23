@@ -15,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1.0,
     },
     {
-      url: `${siteUrl}/tools`,
+      url: `${siteUrl}/calculators`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.9,
@@ -70,7 +70,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     const toolUrls: MetadataRoute.Sitemap = FINANCIAL_TOOLS.map((t) => ({
-      url: `${siteUrl}/tools/${t.slug}`,
+      url: `${siteUrl}/calculators/${t.slug}`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.85,

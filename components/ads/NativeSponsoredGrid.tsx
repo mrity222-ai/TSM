@@ -1,132 +1,132 @@
 import Link from 'next/link';
 import { getDb } from '@/lib/db';
+import { ArrowRight, BookOpen, Clock } from 'lucide-react';
 
-interface SponsoredCardItem {
+interface RecommendedBlogItem {
   id: string;
   title: string;
+  slug: string;
   description: string;
-  brand: string;
   imageUrl: string;
-  targetUrl: string;
-  ctaText: string;
+  categoryName: string;
+  categorySlug: string;
+  authorName: string;
+  readTime: string;
 }
 
 export default function NativeSponsoredGrid() {
-  let cards: SponsoredCardItem[] = [];
+  let blogs: RecommendedBlogItem[] = [];
 
   try {
     const db = getDb();
-    // Prioritize native_partner_ slots, then any active inhouse/affiliate banner with an image
-    const activeBanners = db
+    // Exclusively query real published articles with featured images from the database
+    const rows = db
       .prepare(
-        `SELECT id, code_or_title, description, slot_label, image_url, target_url, cta_text
-         FROM ad_slots
-         WHERE is_active = 1
-           AND (slot_key LIKE 'native_partner_%' OR ad_type IN ('inhouse_banner', 'affiliate_card'))
-           AND image_url IS NOT NULL AND image_url != ''
-         ORDER BY 
-           CASE WHEN slot_key LIKE 'native_partner_%' THEN 0 ELSE 1 END,
-           slot_key ASC,
-           updated_at DESC
+        `SELECT a.id, a.title, a.slug, a.seo_description, a.direct_answer, a.featured_image, a.author_name, a.published_at,
+                c.name AS category_name, c.slug AS category_slug
+         FROM articles a
+         JOIN categories c ON a.category_id = c.id
+         WHERE a.status = 'published' AND a.featured_image IS NOT NULL AND a.featured_image != ''
+         ORDER BY a.published_at DESC
          LIMIT 3`
       )
       .all() as any[];
 
-    if (activeBanners && activeBanners.length > 0) {
-      cards = activeBanners.map((b) => ({
+    if (rows && rows.length > 0) {
+      blogs = rows.map((b) => ({
         id: String(b.id),
-        title: b.code_or_title || 'Featured Market Offer',
+        title: b.title,
+        slug: b.slug,
         description:
-          b.description ||
-          'Explore curated financial tools, research terminals & investment accounts.',
-        brand: b.slot_label?.split(':')[0]?.trim() || 'Partner Offer',
-        imageUrl: b.image_url,
-        targetUrl: b.target_url || '/tools',
-        ctaText: b.cta_text || 'Learn More',
+          b.seo_description ||
+          b.direct_answer ||
+          `Read full institutional analysis, valuation metrics, and market outlook in ${b.category_name}.`,
+        imageUrl: b.featured_image,
+        categoryName: b.category_name || 'Market Story',
+        categorySlug: b.category_slug || 'global-markets',
+        authorName: b.author_name || 'The Stock Times Desk',
+        readTime: '4 min read',
       }));
     }
   } catch (err) {
-    console.error('Error fetching native sponsored cards from database:', err);
-    cards = [];
+    console.error('Error fetching recommended blogs from database:', err);
+    blogs = [];
   }
 
-  // If no active cards exist in database, do not render empty section
-  if (cards.length === 0) {
+  // If no published blogs exist, cleanly hide section
+  if (blogs.length === 0) {
     return null;
   }
 
   return (
     <section
-      aria-label="Recommended & Sponsored Stories"
+      aria-label="Recommended Editorial Stories"
       className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-8 space-y-4"
     >
-      {/* Top Divider & Label (Matches Taboola / Outbrain clean institutional design) */}
+      {/* Top Divider & Label */}
       <div className="border-t border-slate-200 pt-3 flex items-center justify-between">
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-          RECOMMENDED FOR INVESTORS
-        </span>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          SPONSORED &amp; PARTNER PICKS
-        </span>
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
+            RECOMMENDED STORIES FOR INVESTORS
+          </span>
+        </div>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition uppercase tracking-wider"
+        >
+          <span>From Our Editorial Desk</span>
+          <ArrowRight className="w-3 h-3" />
+        </Link>
       </div>
 
-      {/* 3-Column Native Ad Cards Grid */}
+      {/* 3-Column Editorial Blog Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {cards.map((card) => {
-          const isExternal = card.targetUrl.startsWith('http');
-
-          const CardInner = (
+        {blogs.map((blog) => (
+          <Link
+            key={blog.id}
+            href={`/${blog.categorySlug}/${blog.slug}`}
+            className="group block h-full"
+          >
             <div className="group h-full flex flex-col justify-between bg-white rounded-2xl border border-slate-200/80 p-3 hover:shadow-md hover:border-slate-300 transition">
               <div className="space-y-2.5">
-                {/* Rounded 16:9 Image */}
-                <div className="aspect-[16/9] w-full rounded-xl overflow-hidden bg-slate-100">
+                {/* Rounded 16:9 Image with Floating Category Badge */}
+                <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-slate-100">
                   <img
-                    src={card.imageUrl}
-                    alt={card.title}
+                    src={blog.imageUrl}
+                    alt={blog.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />
+                  <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-xs text-[10px] font-extrabold text-white tracking-wider uppercase shadow-xs">
+                    {blog.categoryName}
+                  </span>
                 </div>
 
                 {/* Bold Title + 2-Line Description */}
                 <div className="space-y-1 px-0.5">
                   <h3 className="text-[15px] font-bold text-slate-950 group-hover:text-blue-700 transition leading-snug line-clamp-2">
-                    {card.title}
+                    {blog.title}
                   </h3>
                   <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                    {card.description}
+                    {blog.description}
                   </p>
                 </div>
               </div>
 
-              {/* Bottom Brand | Sponsored + Pill CTA Button */}
-              <div className="pt-3 mt-2 px-0.5 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-400 font-medium truncate">
-                  {card.brand} <span className="mx-1">|</span> Sponsored
+              {/* Bottom Author / Read Time + Pill Button */}
+              <div className="pt-3 mt-2 px-0.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-medium truncate">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  <span>{blog.authorName.split(' ')[0]} · {blog.readTime}</span>
                 </span>
 
-                <span className="shrink-0 px-4 py-1.5 rounded-full border border-slate-300 group-hover:border-slate-900 group-hover:bg-slate-900 group-hover:text-white text-slate-900 text-xs font-bold transition">
-                  {card.ctaText}
+                <span className="shrink-0 px-3.5 py-1.5 rounded-full border border-slate-300 group-hover:border-slate-900 group-hover:bg-slate-900 group-hover:text-white text-slate-900 text-xs font-bold transition">
+                  Read Story →
                 </span>
               </div>
             </div>
-          );
-
-          return isExternal ? (
-            <a
-              key={card.id}
-              href={card.targetUrl}
-              target="_blank"
-              rel="nofollow sponsored noopener"
-              className="block h-full"
-            >
-              {CardInner}
-            </a>
-          ) : (
-            <Link key={card.id} href={card.targetUrl} className="block h-full">
-              {CardInner}
-            </Link>
-          );
-        })}
+          </Link>
+        ))}
       </div>
     </section>
   );

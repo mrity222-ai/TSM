@@ -182,32 +182,6 @@ export default async function CategoryLandingPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schemas) }}
       />
 
-      {/* 1. Compact Category Pills Bar (Current Category Highlighted) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-        <Link
-          href="/"
-          className="shrink-0 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:border-blue-500 text-xs font-bold transition"
-        >
-          All News
-        </Link>
-        {allCategories.map((cat) => {
-          const isCurrent = cat.slug === currentCategory.slug;
-          return (
-            <Link
-              key={cat.id}
-              href={`/${cat.slug}`}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
-                isCurrent
-                  ? 'bg-[#0B1C2D] text-white shadow-2xs'
-                  : 'bg-white border border-slate-200 text-slate-700 hover:border-blue-500'
-              }`}
-            >
-              {cat.name}
-            </Link>
-          );
-        })}
-      </div>
-
       {/* Mobile Quick Search Bar (Filters inside this category) */}
       <form action={`/${currentCategory.slug}`} method="GET" className="md:hidden">
         <div className="relative">

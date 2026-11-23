@@ -36,7 +36,7 @@ export default function MobileNewsFeed({
       href: `/${cat.slug}`,
       style: PILL_COLORS[idx % PILL_COLORS.length],
     })),
-    { label: 'FINANCE TOOLS', href: '/tools', style: 'bg-blue-600 text-white' },
+    { label: 'WEALTH TOOLS', href: '/calculators', style: 'bg-blue-600 text-white' },
   ];
 
   const featuredBrief = articles[0];
@@ -239,11 +239,11 @@ export default function MobileNewsFeed({
               <div className="flex items-center gap-1.5">
                 <Calculator className="w-4 h-4 text-emerald-600" />
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-950">
-                  FINANCE TOOLS & CALCULATORS
+                  WEALTH MANAGEMENT TOOLS
                 </h2>
               </div>
-              <Link href="/tools" className="text-[11px] font-bold text-blue-600">
-                All Finance Tools →
+              <Link href="/calculators" className="text-[11px] font-bold text-blue-600">
+                All Wealth Tools →
               </Link>
             </div>
 
@@ -251,7 +251,7 @@ export default function MobileNewsFeed({
               {FINANCIAL_TOOLS.slice(0, 6).map((tool) => (
                 <Link
                   key={tool.slug}
-                  href={`/tools/${tool.slug}`}
+                  href={`/calculators/${tool.slug}`}
                   className="p-3 rounded-xl bg-slate-100/80 hover:bg-[#0B1C2D] hover:text-white border border-slate-200/70 transition flex flex-col justify-between"
                 >
                   <span className="text-[9px] font-extrabold uppercase text-emerald-700">

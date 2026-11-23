@@ -10,7 +10,7 @@ export default function MobileBottomNav() {
   const navItems = [
     { label: 'HOME', href: '/', icon: Home },
     { label: 'MARKETS', href: '/global-markets', icon: BarChart2 },
-    { label: 'FINANCE TOOLS', href: '/tools', icon: Wallet },
+    { label: 'WEALTH TOOLS', href: '/calculators', icon: Wallet },
     { label: 'IPO', href: '/ipo', icon: Flame },
     { label: 'SEARCH', href: '/?search=1', icon: Search },
   ];

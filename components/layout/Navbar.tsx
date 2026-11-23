@@ -7,11 +7,13 @@ import { Search, Calculator, Globe, Radio, Menu, X } from 'lucide-react';
 
 const defaultNavCategories = [
   { name: 'HOME', href: '/' },
-  { name: 'STOCK MARKET', href: '/global-markets' },
+  { name: 'GLOBAL MARKETS', href: '/global-markets' },
+  { name: 'IPO', href: '/ipo' },
   { name: 'TECH & AI', href: '/tech-ai-stocks' },
   { name: 'CRYPTO & FINTECH', href: '/crypto-fintech' },
   { name: 'ECONOMY', href: '/economy-policy' },
-  { name: 'FINANCE TOOLS', href: '/tools' },
+  { name: 'PERSONAL FINANCE', href: '/personal-finance' },
+  { name: 'WEALTH TOOLS', href: '/calculators' },
 ];
 
 export default function Navbar() {
@@ -87,13 +89,13 @@ export default function Navbar() {
               {currency === 'USD' ? 'US USD ($)' : 'IN INR (₹)'}
             </button>
 
-            {/* Financial Tools CTA */}
+            {/* Wealth Management Tools CTA */}
             <Link
-              href="/tools"
+              href="/calculators"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F2439] hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm"
             >
               <Calculator className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Financial Tools</span>
+              <span>Wealth Management Tools</span>
             </Link>
 
             {/* Mobile Hamburger */}

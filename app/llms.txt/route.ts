@@ -42,9 +42,12 @@ ${takeaways ? `- **Key Takeaways:**\n${takeaways}` : ''}
 
 ## Key Sections
 - Global Markets: ${siteUrl}/global-markets
+- IPO & GMP: ${siteUrl}/ipo
 - Tech & AI Stocks: ${siteUrl}/tech-ai-stocks
 - Crypto & Fintech: ${siteUrl}/crypto-fintech
 - Economy & Policy: ${siteUrl}/economy-policy
+- Personal Finance: ${siteUrl}/personal-finance
+- Wealth Management Tools: ${siteUrl}/calculators
 
 ## Latest Articles & Intelligence
 ${articlesText}

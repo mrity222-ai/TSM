@@ -5,7 +5,7 @@ import { getDb } from '@/lib/db';
 import { FINANCIAL_TOOLS } from '@/lib/tools/toolsData';
 import CalculatorEngine from '@/components/tools/CalculatorEngine';
 import DynamicAdSlot from '@/components/ads/DynamicAdSlot';
-import { CheckCircle2, Coins, Flame, ArrowRight, BookOpen, Lightbulb, Sparkles } from 'lucide-react';
+import { CheckCircle2, Coins, Flame, ArrowRight, BookOpen, Sparkles } from 'lucide-react';
 
 export const revalidate = 60;
 
@@ -26,11 +26,11 @@ export async function generateMetadata({
   return {
     title: tool.seoTitle,
     description: tool.seoDescription,
-    alternates: { canonical: `${siteUrl}/tools/${tool.slug}` },
+    alternates: { canonical: `${siteUrl}/calculators/${tool.slug}` },
     openGraph: {
       title: tool.seoTitle,
       description: tool.seoDescription,
-      url: `${siteUrl}/tools/${tool.slug}`,
+      url: `${siteUrl}/calculators/${tool.slug}`,
       type: 'website',
     },
   };
@@ -64,11 +64,35 @@ export default async function SingleCalculatorPage({
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       name: tool.name,
-      url: `${siteUrl}/tools/${tool.slug}`,
+      url: `${siteUrl}/calculators/${tool.slug}`,
       applicationCategory: 'FinanceApplication',
       operatingSystem: 'All',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
       description: tool.seoDescription,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: `${siteUrl}`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Wealth Management Tools',
+          item: `${siteUrl}/calculators`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: tool.name,
+          item: `${siteUrl}/calculators/${tool.slug}`,
+        },
+      ],
     },
     {
       '@context': 'https://schema.org',
@@ -96,7 +120,7 @@ export default async function SingleCalculatorPage({
         <nav className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
           <Link href="/" className="hover:text-blue-600">Home</Link>
           <span>/</span>
-          <Link href="/tools" className="hover:text-blue-600">Finance Tools</Link>
+          <Link href="/calculators" className="hover:text-blue-600">Wealth Management Tools</Link>
           <span>/</span>
           <span className="text-blue-600">{tool.shortTitle}</span>
         </nav>
@@ -118,7 +142,7 @@ export default async function SingleCalculatorPage({
           {/* ✅ MASTER AD SLOT 2: BELOW CALCULATOR RESULT & CHART */}
           <DynamicAdSlot slotKey="home_mid_banner" />
 
-          {/* SECTION 1: DETAILED OVERVIEW (WHAT IS SIP VS MUTUAL FUND) */}
+          {/* SECTION 1: DETAILED OVERVIEW */}
           {tool.overviewParagraphs && tool.overviewParagraphs.length > 0 && (
             <div className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 space-y-4 shadow-2xs">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -224,7 +248,7 @@ export default async function SingleCalculatorPage({
               Start building long-term wealth with zero-commission direct SIPs
             </p>
             <Link
-              href="/tools/sip-calculator"
+              href="/calculators/sip-calculator"
               className="block w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-extrabold uppercase tracking-wider transition"
             >
               INVEST NOW
@@ -234,13 +258,13 @@ export default async function SingleCalculatorPage({
           {/* Popular Calculators */}
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-extrabold text-slate-900">
-              Popular Finance Tools
+              Popular Wealth Management Tools
             </div>
             <div className="divide-y divide-slate-100">
               {FINANCIAL_TOOLS.map((item) => (
                 <Link
                   key={item.slug}
-                  href={`/tools/${item.slug}`}
+                  href={`/calculators/${item.slug}`}
                   className={`block px-4 py-2.5 text-xs transition ${
                     item.slug === tool.slug
                       ? 'bg-emerald-50/70 font-bold text-emerald-800'

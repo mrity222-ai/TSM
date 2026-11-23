@@ -84,27 +84,8 @@ export default async function HomePage({
 
       {/* 2. DESKTOP & TABLET VIEW (≥ 768px): Full Bento Hero + Sticky Sidebar */}
       <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 pt-3 pb-8 space-y-5 sm:space-y-6 overflow-x-hidden">
-        {/* Desktop/Tablet Quick Category Pills */}
-        <div className="hidden lg:flex items-center gap-2 overflow-x-auto pb-1">
-        <Link
-          href="/"
-          className="shrink-0 px-3.5 py-1.5 rounded-full bg-[#0B1C2D] text-white text-xs font-bold"
-        >
-          All News
-        </Link>
-        {categories.map((cat) => (
-          <Link
-            key={cat.id}
-            href={`/${cat.slug}`}
-            className="shrink-0 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:border-blue-400 transition"
-          >
-            {cat.name}
-          </Link>
-        ))}
-      </div>
-
-      {/* AD SLOT 1: TOP LEADERBOARD */}
-      <DynamicAdSlot slotKey="home_top_banner" />
+        {/* AD SLOT 1: TOP LEADERBOARD */}
+        <DynamicAdSlot slotKey="home_top_banner" />
 
       {/* Active Search Indicator */}
       {q && (
@@ -280,7 +261,7 @@ export default async function HomePage({
             </AnimatedCard>
           )}
 
-          {/* SECTION 3: FINANCIAL TOOLS & CALCULATORS (2-Col Mobile | 6-Col Desktop) */}
+          {/* SECTION 3: WEALTH MANAGEMENT TOOLS & CALCULATORS (2-Col Mobile | 6-Col Desktop) */}
           <AnimatedCard delay={0.15}>
             <section className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 space-y-4 shadow-2xs">
               <div className="flex items-center justify-between gap-2">
@@ -290,15 +271,15 @@ export default async function HomePage({
                   </span>
                   <div>
                     <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
-                      Finance Tools & Wealth Calculators
+                      Wealth Management Tools & Calculators
                     </h2>
                     <p className="hidden sm:block text-[11px] text-slate-500">
                       Plan SIP investments, stock averaging, loan EMIs & retirement goals
                     </p>
                   </div>
                 </div>
-                <Link href="/tools" className="text-xs font-bold text-blue-600 hover:underline">
-                  View All Finance Tools →
+                <Link href="/calculators" className="text-xs font-bold text-blue-600 hover:underline">
+                  View All Wealth Tools →
                 </Link>
               </div>
 
@@ -306,7 +287,7 @@ export default async function HomePage({
                 {FINANCIAL_TOOLS.map((tool) => (
                   <Link
                     key={tool.slug}
-                    href={`/tools/${tool.slug}`}
+                    href={`/calculators/${tool.slug}`}
                     className="p-3 sm:p-3.5 rounded-xl bg-slate-50 hover:bg-[#0B1C2D] hover:text-white border border-slate-200/80 transition group flex flex-col justify-between hover:scale-[1.03]"
                   >
                     <span className="text-[9px] sm:text-[10px] font-extrabold uppercase text-blue-600 group-hover:text-emerald-400">

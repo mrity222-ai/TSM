@@ -15,7 +15,7 @@ export default function Footer() {
             </p>
           </div>
           <div className="flex flex-wrap gap-6 text-xs font-bold text-slate-300 items-center">
-            <Link href="/tools" className="hover:text-emerald-400 transition">Financial Tools</Link>
+            <Link href="/calculators" className="hover:text-emerald-400 transition">Wealth Management Tools</Link>
             <Link href="/about" className="hover:text-white transition">About Us</Link>
             <Link href="/contact" className="hover:text-white transition">Contact Us</Link>
             <Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link>

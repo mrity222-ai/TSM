@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
         destination: '/economy-policy',
         permanent: true,
       },
+      {
+        source: '/tools',
+        destination: '/calculators',
+        permanent: true,
+      },
+      {
+        source: '/tools/:slug',
+        destination: '/calculators/:slug',
+        permanent: true,
+      },
     ];
   },
 };

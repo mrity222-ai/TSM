@@ -162,14 +162,16 @@ function initTables(db: DatabaseSync) {
     );
   `);
 
-  // Seed default categories if empty
+  // Seed default categories if empty (The Exact 6 Categories)
   const catCount = db.prepare('SELECT count(*) as count FROM categories').get() as { count: number };
   if (catCount.count === 0) {
     const insertCat = db.prepare('INSERT OR IGNORE INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)');
-    insertCat.run(crypto.randomUUID(), 'Global Markets', 'global-markets', 'Wall Street, Asian indices, and international equity trends.');
-    insertCat.run(crypto.randomUUID(), 'Tech & AI Stocks', 'tech-ai-stocks', 'Deep dives into semiconductor, cloud, and generative AI corporate equities.');
-    insertCat.run(crypto.randomUUID(), 'Crypto & Fintech', 'crypto-fintech', 'Bitcoin, stablecoins, tokenized assets, and neobanking developments.');
-    insertCat.run(crypto.randomUUID(), 'Economy & Policy', 'economy-policy', 'Central bank interest rates, inflation indicators, and macro policies.');
+    insertCat.run(crypto.randomUUID(), 'Global Markets', 'global-markets', 'Real-time reporting on Indian equities (Nifty, Sensex), US Wall Street indices, Gold, and Global Forex markets.');
+    insertCat.run(crypto.randomUUID(), 'IPO', 'ipo', 'Upcoming mainboard & SME IPOs, real-time Grey Market Premium (GMP) tracker, subscription status, and listing gain analysis.');
+    insertCat.run(crypto.randomUUID(), 'Economy & Policy', 'economy-policy', 'RBI monetary policy updates, Union Budget analysis, inflation (CPI/WPI), GDP growth trends, and government fiscal tax changes.');
+    insertCat.run(crypto.randomUUID(), 'Tech & AI Stocks', 'tech-ai-stocks', 'Deep coverage on global AI stocks, semiconductor wafer giants, cloud computing, and big tech earnings.');
+    insertCat.run(crypto.randomUUID(), 'Crypto & Fintech', 'crypto-fintech', 'Bitcoin spot ETFs, stablecoin regulations, digital payments infrastructure, and next-gen fintech breakthroughs.');
+    insertCat.run(crypto.randomUUID(), 'Personal Finance', 'personal-finance', 'Smart money management, mutual fund SIP compounding, tax-saving strategies, insurance, and retirement planning.');
   }
 
   // Seed default ad slots if empty
@@ -268,7 +270,7 @@ function initTables(db: DatabaseSync) {
     'Open Account',
     1,
     'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80',
-    '/tools/sip-calculator'
+    '/calculators/sip-calculator'
   );
   ensureAdSlot(
     'native_partner_2',
@@ -281,7 +283,7 @@ function initTables(db: DatabaseSync) {
     'Learn More',
     1,
     'https://images.unsplash.com/photo-1579532537598-459ecdaf39cc?auto=format&fit=crop&w=800&q=80',
-    '/tools/sip-calculator'
+    '/calculators/sip-calculator'
   );
   ensureAdSlot(
     'native_partner_3',
@@ -294,7 +296,7 @@ function initTables(db: DatabaseSync) {
     'Learn More',
     1,
     'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=80',
-    '/tools/income-tax-calculator'
+    '/calculators/compound-interest-calculator'
   );
 
   // Legacy mappings fallback
@@ -321,21 +323,23 @@ function initTables(db: DatabaseSync) {
       INSERT OR IGNORE INTO site_navigation (id, section_type, label, href, badge_text, sort_order, is_active, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `);
-    // Seed default navbar items
+    // Seed default navbar items (Exact 6 Desks + Tools)
     insertNav.run(crypto.randomUUID(), 'navbar', 'HOME', '/', null, 1, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'STOCK MARKET', '/global-markets', null, 2, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'TECH & AI', '/tech-ai-stocks', null, 3, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'CRYPTO & FINTECH', '/crypto-fintech', null, 4, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'ECONOMY', '/economy-policy', null, 5, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'TOOLS & CALCULATORS', '/tools', null, 6, 1);
+    insertNav.run(crypto.randomUUID(), 'navbar', 'GLOBAL MARKETS', '/global-markets', null, 2, 1);
+    insertNav.run(crypto.randomUUID(), 'navbar', 'IPO', '/ipo', null, 3, 1);
+    insertNav.run(crypto.randomUUID(), 'navbar', 'TECH & AI', '/tech-ai-stocks', null, 4, 1);
+    insertNav.run(crypto.randomUUID(), 'navbar', 'CRYPTO & FINTECH', '/crypto-fintech', null, 5, 1);
+    insertNav.run(crypto.randomUUID(), 'navbar', 'ECONOMY', '/economy-policy', null, 6, 1);
+    insertNav.run(crypto.randomUUID(), 'navbar', 'PERSONAL FINANCE', '/personal-finance', null, 7, 1);
+    insertNav.run(crypto.randomUUID(), 'navbar', 'WEALTH TOOLS', '/calculators', null, 8, 1);
 
     // Seed default tools ordering
-    insertNav.run(crypto.randomUUID(), 'tools', 'SIP Calculator', '/tools/sip-calculator', 'Investing', 1, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Compound Interest', '/tools/compound-interest-calculator', 'Investing', 2, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Stock Average Calculator', '/tools/stock-average-calculator', 'Trading', 3, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'EMI Calculator', '/tools/emi-calculator', 'Loans & Planning', 4, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Dividend Calculator', '/tools/dividend-calculator', 'Investing', 5, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Retirement Calculator', '/tools/retirement-calculator', 'Loans & Planning', 6, 1);
+    insertNav.run(crypto.randomUUID(), 'tools', 'SIP Calculator', '/calculators/sip-calculator', 'Investing', 1, 1);
+    insertNav.run(crypto.randomUUID(), 'tools', 'Compound Interest', '/calculators/compound-interest-calculator', 'Investing', 2, 1);
+    insertNav.run(crypto.randomUUID(), 'tools', 'Stock Average Calculator', '/calculators/stock-average-calculator', 'Trading', 3, 1);
+    insertNav.run(crypto.randomUUID(), 'tools', 'EMI Calculator', '/calculators/emi-calculator', 'Loans & Planning', 4, 1);
+    insertNav.run(crypto.randomUUID(), 'tools', 'Dividend Calculator', '/calculators/dividend-calculator', 'Investing', 5, 1);
+    insertNav.run(crypto.randomUUID(), 'tools', 'Retirement Calculator', '/calculators/retirement-calculator', 'Loans & Planning', 6, 1);
   }
 
   // Safe migration to update any existing /category/ URLs in navigation to clean root URLs
