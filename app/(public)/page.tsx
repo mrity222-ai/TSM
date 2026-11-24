@@ -152,6 +152,8 @@ export default async function HomePage({
                           src={heroArticle.featured_image}
                           alt={heroArticle.image_alt || heroArticle.title}
                           className="w-full h-full object-cover group-hover:scale-103 transition duration-500"
+                          fetchPriority="high"
+                          decoding="async"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-400">
@@ -193,6 +195,8 @@ export default async function HomePage({
                               src={item.featured_image}
                               alt={item.image_alt || item.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              loading="lazy"
+                              decoding="async"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-400">
@@ -342,6 +346,8 @@ export default async function HomePage({
                               src={block.lead.featured_image}
                               alt={block.lead.image_alt || block.lead.title}
                               className="w-full h-full object-cover group-hover:scale-103 transition duration-500"
+                              loading="lazy"
+                              decoding="async"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-400">
@@ -379,6 +385,8 @@ export default async function HomePage({
                                   src={item.featured_image}
                                   alt={item.image_alt || item.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                  loading="lazy"
+                                  decoding="async"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-400">

@@ -132,6 +132,8 @@ export default function MobileNewsFeed({
                     src={featuredBrief.featured_image}
                     alt={featuredBrief.image_alt || featuredBrief.title}
                     className="w-full h-full object-cover"
+                    fetchPriority="high"
+                    decoding="async"
                   />
                 </div>
               )}
@@ -185,6 +187,8 @@ export default function MobileNewsFeed({
                         src={item.featured_image}
                         alt={item.image_alt || item.title}
                         className="w-20 h-16 rounded-xl object-cover shrink-0 bg-slate-100"
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                   </Link>
@@ -318,6 +322,8 @@ export default function MobileNewsFeed({
                         src={item.featured_image}
                         alt={item.image_alt || item.title}
                         className="w-20 h-16 rounded-xl object-cover shrink-0 bg-slate-100"
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                   </Link>

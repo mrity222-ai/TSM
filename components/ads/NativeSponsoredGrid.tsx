@@ -92,6 +92,8 @@ export default async function NativeSponsoredGrid() {
                     src={blog.imageUrl}
                     alt={blog.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    loading="lazy"
+                    decoding="async"
                   />
                   <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-xs text-[10px] font-extrabold text-white tracking-wider uppercase shadow-xs">
                     {blog.categoryName}

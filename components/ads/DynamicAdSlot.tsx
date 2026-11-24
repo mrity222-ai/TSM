@@ -57,6 +57,8 @@ export default async function DynamicAdSlot({ slotKey }: { slotKey: string }) {
                   src={slot.image_url}
                   alt={slot.code_or_title || 'Sponsored Partner'}
                   className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               </div>
             )}
@@ -110,6 +112,8 @@ export default async function DynamicAdSlot({ slotKey }: { slotKey: string }) {
               src={slot.image_url}
               alt={slot.code_or_title || 'Sponsored Partner'}
               className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-white/15 shrink-0"
+              loading="lazy"
+              decoding="async"
             />
           )}
 

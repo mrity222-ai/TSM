@@ -83,6 +83,8 @@ export default function WatchlistIdeasCarousel({
                 src={item.imageUrl}
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                loading="lazy"
+                decoding="async"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
               <h3 className="absolute bottom-3 left-3.5 right-3.5 text-base sm:text-lg font-extrabold text-white leading-snug line-clamp-2 drop-shadow-xs">
