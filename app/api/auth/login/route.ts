@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const isValid = verifyAdminCredentials(email.trim().toLowerCase(), password);
+    const isValid = await verifyAdminCredentials(email.trim().toLowerCase(), password);
 
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });

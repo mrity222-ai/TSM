@@ -8,7 +8,8 @@ export async function GET() {
   let articlesText = '';
 
   try {
-    const articles = getAllArticles('published').slice(0, 30);
+    const allArticles = await getAllArticles('published');
+    const articles = allArticles.slice(0, 30);
 
     if (articles && articles.length > 0) {
       articlesText = articles

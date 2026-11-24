@@ -1,367 +1,158 @@
 import { DatabaseSync } from 'node:sqlite';
+import mysql, { Pool } from 'mysql2/promise';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { Article, Category, AdSlot, NavItem } from '../types/database';
 
-// Ensure data directory exists
+// Global singletons to prevent multiple connections during Next.js hot-reloading & serverless invocations
+declare global {
+  // eslint-disable-next-line no-var
+  var __stocktimes_sqlite_db: DatabaseSync | undefined;
+  // eslint-disable-next-line no-var
+  var __stocktimes_mysql_pool: Pool | undefined;
+}
+
+// Ensure local data directory exists for SQLite fallback
 const dbDir = path.join(process.cwd(), 'data');
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
-
 const dbPath = path.join(dbDir, 'thestocktimes.db');
-
-// Global singleton pattern to prevent multiple connections during Next.js hot reload
-declare global {
-  // eslint-disable-next-line no-var
-  var __stocktimes_db: DatabaseSync | undefined;
-}
-
-function getDatabase(): DatabaseSync {
-  if (!global.__stocktimes_db) {
-    const db = new DatabaseSync(dbPath);
-    try {
-      db.exec('PRAGMA busy_timeout = 30000;');
-      db.exec('PRAGMA journal_mode = WAL;');
-    } catch {
-      // Pragmas may already be active or locked by another worker
-    }
-    initTables(db);
-    global.__stocktimes_db = db;
-  }
-  return global.__stocktimes_db;
-}
 
 export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(`stocktimes_salt_${password}`).digest('hex');
 }
 
-function initTables(db: DatabaseSync) {
-  // Fast path: if tables are already created and seeded, skip all write operations to avoid lock contention
-  try {
-    const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='site_navigation'").get();
-    if (tableCheck) {
-      return;
-    }
-  } catch {
-    // Proceed to initialize
+/**
+ * Get or initialize MySQL connection pool if DB_HOST is set
+ */
+export function getMySQLPool(): Pool | null {
+  if (!process.env.DB_HOST) {
+    return null;
   }
 
-  // 1. Categories Table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT UNIQUE NOT NULL,
-      description TEXT
-    );
-  `);
+  if (!global.__stocktimes_mysql_pool) {
+    global.__stocktimes_mysql_pool = mysql.createPool({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 3306,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      connectTimeout: 10000,
+    });
+  }
 
-  // 2. Articles Table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS articles (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      slug TEXT UNIQUE NOT NULL,
-      key_takeaways TEXT,
-      content TEXT NOT NULL,
-      category_id TEXT,
-      author_name TEXT DEFAULT 'The Stock Times Editorial Desk',
-      author_role TEXT DEFAULT 'Global Markets & Equity Research',
-      is_featured INTEGER DEFAULT 0,
-      featured_image TEXT,
-      image_alt TEXT,
-      entity_tags TEXT,
-      source_citation TEXT,
-      direct_answer TEXT,
-      faqs TEXT,
-      focus_keyword TEXT,
-      seo_title TEXT,
-      seo_description TEXT,
-      canonical_url TEXT,
-      affiliate_title TEXT,
-      affiliate_url TEXT,
-      affiliate_cta TEXT,
-      status TEXT CHECK(status IN ('draft', 'published')) DEFAULT 'draft',
-      views INTEGER DEFAULT 0,
-      published_at TEXT,
-      updated_at TEXT,
-      created_at TEXT,
-      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-    );
-  `);
+  return global.__stocktimes_mysql_pool;
+}
 
-  // Safe migrations for newly added columns in existing articles table
-  const tryAddCol = (colDef: string) => {
+/**
+ * Get or initialize SQLite database for local fallback
+ */
+export function getSQLiteDatabase(): DatabaseSync {
+  if (!global.__stocktimes_sqlite_db) {
+    const db = new DatabaseSync(dbPath);
     try {
-      db.exec(`ALTER TABLE articles ADD COLUMN ${colDef}`);
+      db.exec('PRAGMA busy_timeout = 30000;');
+      db.exec('PRAGMA journal_mode = WAL;');
     } catch {
-      // Column already exists or added concurrently by parallel build worker
+      // Ignored if busy
     }
-  };
-
-  tryAddCol("author_role TEXT DEFAULT 'Global Markets & Equity Research'");
-  tryAddCol('is_featured INTEGER DEFAULT 0');
-  tryAddCol('entity_tags TEXT');
-  tryAddCol('direct_answer TEXT');
-  tryAddCol('focus_keyword TEXT');
-  tryAddCol('canonical_url TEXT');
-
-  // 3. Ad Slots Table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS ad_slots (
-      id TEXT PRIMARY KEY,
-      slot_key TEXT UNIQUE NOT NULL,
-      slot_label TEXT NOT NULL,
-      ad_type TEXT CHECK(ad_type IN ('adsense', 'inhouse_banner', 'affiliate_card', 'custom_banner')) DEFAULT 'inhouse_banner',
-      ad_size TEXT DEFAULT 'responsive',
-      code_or_title TEXT,
-      description TEXT,
-      bullet_points TEXT,
-      image_url TEXT,
-      target_url TEXT,
-      cta_text TEXT DEFAULT 'Explore Now',
-      is_active INTEGER DEFAULT 1,
-      updated_at TEXT
-    );
-  `);
-
-  // Safe migrations for newly added columns in existing ad_slots table
-  const tryAddAdCol = (colDef: string) => {
-    try {
-      db.exec(`ALTER TABLE ad_slots ADD COLUMN ${colDef}`);
-    } catch {
-      // Column already exists or added concurrently
-    }
-  };
-  tryAddAdCol("ad_size TEXT DEFAULT 'responsive'");
-  tryAddAdCol('bullet_points TEXT');
-
-  // 4. Admin Users Table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS admins (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at TEXT
-    );
-  `);
-
-  // 5. Site Navigation & Tools Ordering Table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS site_navigation (
-      id TEXT PRIMARY KEY,
-      section_type TEXT NOT NULL CHECK (section_type IN ('navbar', 'tools')),
-      label TEXT NOT NULL,
-      href TEXT NOT NULL,
-      badge_text TEXT,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
-
-  // Seed default categories if empty (The Exact 6 Categories)
-  const catCount = db.prepare('SELECT count(*) as count FROM categories').get() as { count: number };
-  if (catCount.count === 0) {
-    const insertCat = db.prepare('INSERT OR IGNORE INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)');
-    insertCat.run(crypto.randomUUID(), 'Global Markets', 'global-markets', 'Real-time reporting on Indian equities (Nifty, Sensex), US Wall Street indices, Gold, and Global Forex markets.');
-    insertCat.run(crypto.randomUUID(), 'IPO', 'ipo', 'Upcoming mainboard & SME IPOs, real-time Grey Market Premium (GMP) tracker, subscription status, and listing gain analysis.');
-    insertCat.run(crypto.randomUUID(), 'Economy & Policy', 'economy-policy', 'RBI monetary policy updates, Union Budget analysis, inflation (CPI/WPI), GDP growth trends, and government fiscal tax changes.');
-    insertCat.run(crypto.randomUUID(), 'Tech & AI Stocks', 'tech-ai-stocks', 'Deep coverage on global AI stocks, semiconductor wafer giants, cloud computing, and big tech earnings.');
-    insertCat.run(crypto.randomUUID(), 'Crypto & Fintech', 'crypto-fintech', 'Bitcoin spot ETFs, stablecoin regulations, digital payments infrastructure, and next-gen fintech breakthroughs.');
-    insertCat.run(crypto.randomUUID(), 'Personal Finance', 'personal-finance', 'Smart money management, mutual fund SIP compounding, tax-saving strategies, insurance, and retirement planning.');
+    global.__stocktimes_sqlite_db = db;
   }
+  return global.__stocktimes_sqlite_db;
+}
 
-  // Seed default ad slots if empty
-  const adCount = db.prepare('SELECT count(*) as count FROM ad_slots').get() as { count: number };
-  if (adCount.count === 0) {
-    const insertAd = db.prepare(`
-      INSERT OR IGNORE INTO ad_slots (id, slot_key, slot_label, ad_type, code_or_title, description, image_url, target_url, cta_text, is_active, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const now = new Date().toISOString();
-    insertAd.run(crypto.randomUUID(), 'header_banner', '1. Homepage Top Leaderboard (Below Ticker)', 'affiliate_card', 'Zero-Brokerage Demat Account', 'Trade stocks and F&O with top licensed brokers.', null, 'https://thestocktimes.online', 'Open Account', 1, now);
-    insertAd.run(crypto.randomUUID(), 'in_article_para_2', 'In-Article Slot 1 (Post Intro)', 'affiliate_card', 'Automate Your Trading Strategy', 'Discover institutional-grade charting and screener tools.', null, 'https://thestocktimes.online', 'Start Free Trial', 1, now);
-    insertAd.run(crypto.randomUUID(), 'before_faq', 'In-Article Slot 2 (Before FAQs)', 'inhouse_banner', 'Sponsored Market Insight', null, null, 'https://thestocktimes.online', 'Learn More', 0, now);
-    insertAd.run(crypto.randomUUID(), 'sidebar_sticky', '3. Sticky Sidebar Box (300x250)', 'affiliate_card', 'Institutional Research Terminal', 'Get real-time news alerts and earnings forecasts.', null, 'https://thestocktimes.online', 'Claim Discount', 1, now);
-  }
+// Backward compatibility
+export const getDb = () => getSQLiteDatabase();
+export const db = getSQLiteDatabase();
 
-  // Safe migration to ensure ad slots exist
-  const ensureAdSlot = (
-    key: string,
-    label: string,
-    adType: 'inhouse_banner' | 'adsense' | 'affiliate_card',
-    adSize: string,
-    title: string | null,
-    desc: string | null,
-    bullets: string[] | null,
-    cta: string,
-    isActive: number,
-    imageUrl?: string | null,
-    targetUrl?: string | null
-  ) => {
+/**
+ * Universal Query Runner (Runs on MySQL when DB_HOST is configured, else SQLite)
+ */
+export async function dbQuery<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  const pool = getMySQLPool();
+  if (pool) {
     try {
-      const existing = db.prepare('SELECT id FROM ad_slots WHERE slot_key = ?').get(key);
-      if (!existing) {
-        db.prepare(`
-          INSERT INTO ad_slots (id, slot_key, slot_label, ad_type, ad_size, code_or_title, description, bullet_points, image_url, target_url, cta_text, is_active, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `).run(
-          crypto.randomUUID(),
-          key,
-          label,
-          adType,
-          adSize,
-          title,
-          desc,
-          bullets ? JSON.stringify(bullets) : null,
-          imageUrl || null,
-          targetUrl || 'https://thestocktimes.online',
-          cta,
-          isActive
-        );
+      const [rows] = await pool.query(sql, params);
+      return (rows || []) as T[];
+    } catch (err: any) {
+      console.error('MySQL query error:', err.message);
+      // Fallback to SQLite if MySQL network hiccups during local dev
+      try {
+        return getSQLiteDatabase().prepare(sql).all(...params) as T[];
+      } catch {
+        return [];
       }
-    } catch {
-      // Ignore
     }
-  };
-
-  // Register all 21 Strategic Ad Slots across the 4 core page templates
-  // 1. Homepage (6 Slots)
-  ensureAdSlot('home_top_banner', 'Home 1: Top Leaderboard (Below Ticker)', 'inhouse_banner', '728x90', 'Zero-Brokerage Demat Account', 'Trade stocks and F&O with top licensed brokers.', ['Zero Account Opening Fee', 'Free TradingView Charts', 'Instant UPI Deposits'], 'Open Account', 1);
-  ensureAdSlot('home_mid_banner', 'Home 2: Below Bento Hero', 'inhouse_banner', 'responsive', 'Open a Zero-Brokerage Trading & Demat Account', 'Start investing in US & Indian equities with institutional-grade charts.', ['Zero Account Opening Fee', 'Free TradingView Charts', 'Instant UPI Deposits'], 'Open Free Account', 1);
-  ensureAdSlot('home_tools_below', 'Home 3: Below Calculators Strip', 'adsense', '728x90', '', null, null, 'Explore', 0);
-  ensureAdSlot('home_feed_mid', 'Home 4: Inside Latest Market Coverage', 'adsense', 'responsive', '', null, null, 'Learn More', 0);
-  ensureAdSlot('home_sidebar_sticky', 'Home 5: Sticky Sidebar Box (300x250)', 'inhouse_banner', '300x250', 'Institutional Research Terminal', 'Get real-time news alerts and earnings forecasts.', ['Live Screener Alerts', 'Consensus Analyst Price Targets', 'AI Sentiment Tracker'], 'Claim Discount', 1);
-  ensureAdSlot('home_footer_banner', 'Home 6: Bottom Footer Leaderboard', 'inhouse_banner', '728x90', 'Institutional Market Intelligence', 'Subscribe to daily pre-market equity briefs and stock alerts.', null, 'Explore Insights', 1);
-
-  // 2. Article Reading Page / Blog Details (5 Slots)
-  ensureAdSlot('article_top_banner', 'Article 1: Top Leaderboard (Above Title)', 'adsense', '728x90', '', null, null, 'Learn More', 0);
-  ensureAdSlot('article_para_2', 'Article 2: After Key Takeaways / Intro', 'adsense', 'responsive', '', null, null, 'Explore', 0);
-  ensureAdSlot('article_mid_body', 'Article 3: Mid-Article Content Slot', 'inhouse_banner', 'responsive', 'Track Live Stock Charts with TradingView', 'Institutional-grade charting and screener tools for modern investors.', ['Advanced Technical Indicators', 'Real-Time Market Heatmaps', 'Multi-Asset Watchlists'], 'Try Free', 1);
-  ensureAdSlot('article_before_faq', 'Article 4: End of Article (Before FAQs)', 'adsense', 'responsive', '', null, null, 'Learn More', 0);
-  ensureAdSlot('article_sidebar_sticky', 'Article 5: Sticky Right Sidebar (300x250)', 'inhouse_banner', '300x250', 'Institutional Research Terminal', 'Get real-time news alerts and earnings forecasts.', ['Live Screener Alerts', 'Consensus Analyst Price Targets'], 'Explore Terminal', 1);
-
-  // 3. Financial Tools / Calculators Page (5 Slots)
-  ensureAdSlot('tool_top_banner', 'Tools 1: Top Leaderboard (Above Calculator)', 'adsense', '728x90', '', null, null, 'Learn More', 0);
-  ensureAdSlot('tool_below_result', 'Tools 2: Below Result & Chart Box', 'inhouse_banner', 'responsive', 'Start Your SIP with Zero Commission', 'Invest in top-rated direct mutual funds and equity baskets with zero hidden charges.', ['0% Brokerage on Mutual Funds', 'Automated Daily/Monthly SIPs', 'Instant Portfolio Rebalancing'], 'Invest Now', 1);
-  ensureAdSlot('tool_before_guide', 'Tools 3: Above Formula & Guide Section', 'adsense', 'responsive', '', null, null, 'Learn More', 0);
-  ensureAdSlot('tool_sidebar_sticky', 'Tools 4: Sticky Sidebar Box (300x250)', 'inhouse_banner', '300x250', 'Automate Your Wealth Strategy', 'Connect with verified portfolio managers and algorithmic models.', null, 'Explore Wealth', 1);
-  ensureAdSlot('tool_footer_banner', 'Tools 5: Bottom Footer Leaderboard', 'adsense', '728x90', '', null, null, 'Learn More', 0);
-
-  // 4. Category / Blogs Listing Page (5 Slots)
-  ensureAdSlot('cat_top_banner', 'Category 1: Top Leaderboard', 'adsense', '728x90', '', null, null, 'Learn More', 0);
-  ensureAdSlot('cat_row_1_below', 'Category 2: After First 3 Articles', 'adsense', 'responsive', '', null, null, 'Learn More', 0);
-  ensureAdSlot('cat_row_2_below', 'Category 3: After 6 Articles', 'inhouse_banner', 'responsive', 'Get Daily IPO & Stock Alerts', 'Get instant WhatsApp and email notifications on upcoming IPOs and breakout stocks.', ['Pre-IPO Valuations', 'Grey Market Premium (GMP)', 'Listing Day Strategies'], 'Join Free', 1);
-  ensureAdSlot('cat_sidebar_sticky', 'Category 4: Sticky Sidebar Box (300x250)', 'inhouse_banner', '300x250', 'Institutional Research Terminal', 'Access in-depth market research and sector coverage.', null, 'Get Free Access', 1);
-  ensureAdSlot('cat_footer_banner', 'Category 5: Bottom Footer Leaderboard', 'adsense', '728x90', '', null, null, 'Learn More', 0);
-
-  // 5. Native Sponsored Grid Slots (3 Slots for NativeSponsoredGrid)
-  ensureAdSlot(
-    'native_partner_1',
-    'Native Sponsored 1: Demat & US Stocks Account',
-    'inhouse_banner',
-    'responsive',
-    'Zero-Brokerage Demat & US Stocks Account for Indian Investors',
-    'Open a free trading account in 5 minutes with instant UPI deposits & live TradingView charts.',
-    null,
-    'Open Account',
-    1,
-    'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80',
-    '/calculators/sip-calculator'
-  );
-  ensureAdSlot(
-    'native_partner_2',
-    'Native Sponsored 2: SIP Wealth Corpus Calculator',
-    'inhouse_banner',
-    'responsive',
-    'Calculate Your 10-Year Mutual Fund SIP Wealth Corpus Instantly',
-    'Compare monthly SIP vs Lumpsum compounding returns and plan your financial freedom goal.',
-    null,
-    'Learn More',
-    1,
-    'https://images.unsplash.com/photo-1579532537598-459ecdaf39cc?auto=format&fit=crop&w=800&q=80',
-    '/calculators/sip-calculator'
-  );
-  ensureAdSlot(
-    'native_partner_3',
-    'Native Sponsored 3: Income Tax & 80C Savings',
-    'inhouse_banner',
-    'responsive',
-    'Save Up to ₹46,800 in Taxes Under New Regime & Section 80C',
-    'Estimate your exact FY 2026-27 tax liability and compare PPF, ELSS & NPS tax deductions.',
-    null,
-    'Learn More',
-    1,
-    'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=80',
-    '/calculators/compound-interest-calculator'
-  );
-
-  // Legacy mappings fallback
-  ensureAdSlot('header_banner', 'Legacy Header Banner', 'inhouse_banner', '728x90', 'Zero-Brokerage Demat Account', 'Trade stocks and F&O with top licensed brokers.', null, 'Open Account', 1);
-  ensureAdSlot('sidebar_sticky', 'Legacy Sidebar Sticky', 'inhouse_banner', '300x250', 'Institutional Research Terminal', null, null, 'Claim Discount', 1);
-  ensureAdSlot('in_article_para_2', 'Legacy In-Article Para 2', 'inhouse_banner', 'responsive', 'Automate Your Trading Strategy', null, null, 'Start Free Trial', 1);
-
-  // Seed default admin if empty
-  const adminCount = db.prepare('SELECT count(*) as count FROM admins').get() as { count: number };
-  if (adminCount.count === 0) {
-    const insertAdmin = db.prepare('INSERT OR IGNORE INTO admins (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)');
-    insertAdmin.run(
-      crypto.randomUUID(),
-      'admin@thestocktimes.online',
-      hashPassword('Admin@123'),
-      new Date().toISOString()
-    );
   }
 
-  // Seed default site navigation & tools if empty
-  const navCount = db.prepare('SELECT count(*) as count FROM site_navigation').get() as { count: number };
-  if (navCount.count === 0) {
-    const insertNav = db.prepare(`
-      INSERT OR IGNORE INTO site_navigation (id, section_type, label, href, badge_text, sort_order, is_active, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    `);
-    // Seed default navbar items (Exact 6 Desks + Tools)
-    insertNav.run(crypto.randomUUID(), 'navbar', 'HOME', '/', null, 1, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'GLOBAL MARKETS', '/global-markets', null, 2, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'IPO', '/ipo', null, 3, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'TECH & AI', '/tech-ai-stocks', null, 4, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'CRYPTO & FINTECH', '/crypto-fintech', null, 5, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'ECONOMY', '/economy-policy', null, 6, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'PERSONAL FINANCE', '/personal-finance', null, 7, 1);
-    insertNav.run(crypto.randomUUID(), 'navbar', 'WEALTH TOOLS', '/calculators', null, 8, 1);
-
-    // Seed default tools ordering
-    insertNav.run(crypto.randomUUID(), 'tools', 'SIP Calculator', '/calculators/sip-calculator', 'Investing', 1, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Compound Interest', '/calculators/compound-interest-calculator', 'Investing', 2, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Stock Average Calculator', '/calculators/stock-average-calculator', 'Trading', 3, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'EMI Calculator', '/calculators/emi-calculator', 'Loans & Planning', 4, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Dividend Calculator', '/calculators/dividend-calculator', 'Investing', 5, 1);
-    insertNav.run(crypto.randomUUID(), 'tools', 'Retirement Calculator', '/calculators/retirement-calculator', 'Loans & Planning', 6, 1);
-  }
-
-  // Safe migration to update any existing /category/ URLs in navigation to clean root URLs
   try {
-    db.exec("UPDATE site_navigation SET href = REPLACE(href, '/category/', '/') WHERE href LIKE '/category/%';");
-  } catch {
-    // Ignore
+    return getSQLiteDatabase().prepare(sql).all(...params) as T[];
+  } catch (err: any) {
+    console.error('SQLite query error:', err.message);
+    return [];
   }
 }
 
-export const db = getDatabase();
-export const getDb = () => db;
+/**
+ * Universal Query One Runner (Returns single record or null)
+ */
+export async function dbQueryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  const pool = getMySQLPool();
+  if (pool) {
+    try {
+      const [rows] = await pool.query(sql, params) as any[];
+      if (rows && rows.length > 0) {
+        return rows[0] as T;
+      }
+      return null;
+    } catch (err: any) {
+      console.error('MySQL queryOne error:', err.message);
+      try {
+        const row = getSQLiteDatabase().prepare(sql).get(...params);
+        return (row as T) || null;
+      } catch {
+        return null;
+      }
+    }
+  }
 
-// ----------------- Helper Functions -----------------
+  try {
+    const row = getSQLiteDatabase().prepare(sql).get(...params);
+    return (row as T) || null;
+  } catch (err: any) {
+    console.error('SQLite queryOne error:', err.message);
+    return null;
+  }
+}
 
-function parseArticle(row: any): Article {
+/**
+ * Universal Execute Runner (For INSERT, UPDATE, DELETE)
+ */
+export async function dbExecute(sql: string, params: any[] = []): Promise<any> {
+  const pool = getMySQLPool();
+  if (pool) {
+    const [result] = await pool.execute(sql, params);
+    return result;
+  }
+  return getSQLiteDatabase().prepare(sql).run(...params);
+}
+
+// ----------------- Parsers & Helpers -----------------
+
+export function parseArticle(row: any): Article {
   if (!row) return row;
   let parsedEntityTags: string[] = [];
   if (row.entity_tags) {
     try {
       if (typeof row.entity_tags === 'string' && row.entity_tags.startsWith('[')) {
         parsedEntityTags = JSON.parse(row.entity_tags);
+      } else if (Array.isArray(row.entity_tags)) {
+        parsedEntityTags = row.entity_tags;
       } else if (typeof row.entity_tags === 'string') {
         parsedEntityTags = row.entity_tags.split(',').map((s: string) => s.trim()).filter(Boolean);
       }
@@ -370,10 +161,28 @@ function parseArticle(row: any): Article {
     }
   }
 
+  let keyTakeaways: string[] = [];
+  if (row.key_takeaways) {
+    try {
+      keyTakeaways = typeof row.key_takeaways === 'string' ? JSON.parse(row.key_takeaways) : row.key_takeaways;
+    } catch {
+      keyTakeaways = [];
+    }
+  }
+
+  let faqs: any[] = [];
+  if (row.faqs) {
+    try {
+      faqs = typeof row.faqs === 'string' ? JSON.parse(row.faqs) : row.faqs;
+    } catch {
+      faqs = [];
+    }
+  }
+
   return {
     ...row,
-    key_takeaways: row.key_takeaways ? JSON.parse(row.key_takeaways) : [],
-    faqs: row.faqs ? JSON.parse(row.faqs) : [],
+    key_takeaways: Array.isArray(keyTakeaways) ? keyTakeaways : [],
+    faqs: Array.isArray(faqs) ? faqs : [],
     entity_tags: parsedEntityTags,
     is_featured: Boolean(row.is_featured),
     categories: row.category_name ? {
@@ -385,7 +194,34 @@ function parseArticle(row: any): Article {
   };
 }
 
-export function getAllArticles(status?: string, search?: string): Article[] {
+export function parseAdSlot(row: any): AdSlot {
+  if (!row) return row;
+  let parsedBullets: string[] = [];
+  if (row.bullet_points) {
+    try {
+      if (typeof row.bullet_points === 'string' && row.bullet_points.startsWith('[')) {
+        parsedBullets = JSON.parse(row.bullet_points);
+      } else if (Array.isArray(row.bullet_points)) {
+        parsedBullets = row.bullet_points;
+      } else if (typeof row.bullet_points === 'string') {
+        parsedBullets = row.bullet_points.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    } catch {
+      parsedBullets = [];
+    }
+  }
+
+  return {
+    ...row,
+    ad_size: row.ad_size || 'responsive',
+    bullet_points: parsedBullets,
+    is_active: Boolean(row.is_active),
+  };
+}
+
+// ----------------- Public Data Functions -----------------
+
+export async function getAllArticles(status?: string, search?: string): Promise<Article[]> {
   let query = `
     SELECT a.*, c.name as category_name, c.slug as category_slug, c.description as category_description
     FROM articles a
@@ -409,104 +245,80 @@ export function getAllArticles(status?: string, search?: string): Article[] {
   }
 
   query += ' ORDER BY a.published_at DESC, a.created_at DESC';
-  const rows = db.prepare(query).all(...params);
+  const rows = await dbQuery(query, params);
   return rows.map(parseArticle);
 }
 
-export function getArticleBySlug(slug: string): Article | null {
-  const row = db.prepare(`
+export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  const row = await dbQueryOne(`
     SELECT a.*, c.name as category_name, c.slug as category_slug, c.description as category_description
     FROM articles a
     LEFT JOIN categories c ON a.category_id = c.id
     WHERE a.slug = ?
-  `).get(slug);
+  `, [slug]);
 
   return row ? parseArticle(row) : null;
 }
 
-export function getArticleById(id: string): Article | null {
-  const row = db.prepare(`
+export async function getArticleById(id: string): Promise<Article | null> {
+  const row = await dbQueryOne(`
     SELECT a.*, c.name as category_name, c.slug as category_slug, c.description as category_description
     FROM articles a
     LEFT JOIN categories c ON a.category_id = c.id
     WHERE a.id = ?
-  `).get(id);
+  `, [id]);
 
   return row ? parseArticle(row) : null;
 }
 
-export function getArticlesByCategory(categorySlug: string): { category: Category | null; articles: Article[] } {
-  const category = db.prepare('SELECT * FROM categories WHERE slug = ?').get(categorySlug) as unknown as Category | undefined;
+export async function getArticlesByCategory(categorySlug: string): Promise<{ category: Category | null; articles: Article[] }> {
+  const category = await getCategoryBySlug(categorySlug);
   if (!category) return { category: null, articles: [] };
 
-  const rows = db.prepare(`
+  const rows = await dbQuery(`
     SELECT a.*, c.name as category_name, c.slug as category_slug, c.description as category_description
     FROM articles a
     LEFT JOIN categories c ON a.category_id = c.id
     WHERE a.category_id = ? AND a.status = 'published'
     ORDER BY a.published_at DESC
-  `).all(category.id) as unknown as any[];
+  `, [category.id]);
 
   return { category, articles: rows.map(parseArticle) };
 }
 
-export function getCategoryBySlug(slug: string): Category | null {
-  const row = db.prepare('SELECT * FROM categories WHERE slug = ?').get(slug) as unknown as Category | undefined;
+export async function getCategoryBySlug(slug: string): Promise<Category | null> {
+  const row = await dbQueryOne('SELECT * FROM categories WHERE slug = ?', [slug]);
   return row || null;
 }
 
-export function getArticleByCategoryAndSlug(categorySlug: string, articleSlug: string): Article | null {
-  const row = db.prepare(`
+export async function getArticleByCategoryAndSlug(categorySlug: string, articleSlug: string): Promise<Article | null> {
+  const row = await dbQueryOne(`
     SELECT a.*, c.name as category_name, c.slug as category_slug, c.description as category_description
     FROM articles a
     INNER JOIN categories c ON a.category_id = c.id
     WHERE a.slug = ? AND c.slug = ? AND a.status = 'published'
-  `).get(articleSlug, categorySlug);
+  `, [articleSlug, categorySlug]);
 
   return row ? parseArticle(row) : null;
 }
 
-export function getAllCategories(): Category[] {
-  return db.prepare('SELECT * FROM categories ORDER BY name ASC').all() as unknown as Category[];
+export async function getAllCategories(): Promise<Category[]> {
+  const rows = await dbQuery('SELECT * FROM categories ORDER BY name ASC');
+  return rows as Category[];
 }
 
-function parseAdSlot(row: any): AdSlot {
-  if (!row) return row;
-  let parsedBullets: string[] = [];
-  if (row.bullet_points) {
-    try {
-      if (typeof row.bullet_points === 'string' && row.bullet_points.startsWith('[')) {
-        parsedBullets = JSON.parse(row.bullet_points);
-      } else if (typeof row.bullet_points === 'string') {
-        parsedBullets = row.bullet_points.split(',').map((s: string) => s.trim()).filter(Boolean);
-      }
-    } catch {
-      parsedBullets = [];
-    }
-  }
-
-  return {
-    ...row,
-    ad_size: row.ad_size || 'responsive',
-    bullet_points: parsedBullets,
-    is_active: Boolean(row.is_active),
-  };
-}
-
-export function getAdSlot(slotKey: string): AdSlot | null {
-  const row = db.prepare('SELECT * FROM ad_slots WHERE slot_key = ? AND is_active = 1').get(slotKey) as any;
+export async function getAdSlot(slotKey: string): Promise<AdSlot | null> {
+  const row = await dbQueryOne('SELECT * FROM ad_slots WHERE slot_key = ? AND is_active = 1', [slotKey]);
   if (!row) return null;
   return parseAdSlot(row);
 }
 
-export function getAllAdSlots(): AdSlot[] {
-  const rows = db.prepare('SELECT * FROM ad_slots ORDER BY slot_key ASC').all() as any[];
+export async function getAllAdSlots(): Promise<AdSlot[]> {
+  const rows = await dbQuery('SELECT * FROM ad_slots ORDER BY slot_key ASC');
   return rows.map(parseAdSlot);
 }
 
-// ----------------- Site Navigation Helper Functions -----------------
-
-export function getNavigationItems(sectionType?: string, onlyActive = true): NavItem[] {
+export async function getNavigationItems(sectionType?: string, onlyActive = true): Promise<NavItem[]> {
   let query = 'SELECT * FROM site_navigation';
   const conditions: string[] = [];
   const params: any[] = [];
@@ -523,83 +335,88 @@ export function getNavigationItems(sectionType?: string, onlyActive = true): Nav
     query += ' WHERE ' + conditions.join(' AND ');
   }
 
-  query += ' ORDER BY sort_order ASC, created_at ASC';
-  const rows = db.prepare(query).all(...params) as any[];
-  return rows.map((r) => ({
+  query += ' ORDER BY sort_order ASC, label ASC';
+  const rows = await dbQuery(query, params);
+  return rows.map((r: any) => ({
     ...r,
     is_active: Boolean(r.is_active),
   }));
 }
 
-export function getAllNavigationItems(): NavItem[] {
+export async function getAllNavigationItems(): Promise<NavItem[]> {
   return getNavigationItems('all', false);
 }
 
-export function updateNavItem(id: string, updates: Partial<NavItem>): void {
-  const fields: string[] = [];
-  const params: any[] = [];
-
-  if (updates.label !== undefined) {
-    fields.push('label = ?');
-    params.push(updates.label);
-  }
-  if (updates.href !== undefined) {
-    fields.push('href = ?');
-    params.push(updates.href);
-  }
-  if (updates.badge_text !== undefined) {
-    fields.push('badge_text = ?');
-    params.push(updates.badge_text);
-  }
-  if (updates.sort_order !== undefined) {
-    fields.push('sort_order = ?');
-    params.push(updates.sort_order);
-  }
-  if (updates.is_active !== undefined) {
-    fields.push('is_active = ?');
-    params.push(updates.is_active ? 1 : 0);
-  }
-
-  if (fields.length === 0) return;
-
-  params.push(id);
-  db.prepare(`UPDATE site_navigation SET ${fields.join(', ')} WHERE id = ?`).run(...params);
-}
-
-export function reorderNavItems(items: { id: string; sort_order: number }[]): void {
-  const stmt = db.prepare('UPDATE site_navigation SET sort_order = ? WHERE id = ?');
-  db.exec('BEGIN TRANSACTION;');
-  try {
-    for (const item of items) {
-      stmt.run(item.sort_order, item.id);
-    }
-    db.exec('COMMIT;');
-  } catch (err) {
-    db.exec('ROLLBACK;');
-    throw err;
-  }
-}
-
-export function insertNavItem(item: {
+export async function insertNavItem(item: {
   section_type: 'navbar' | 'tools';
   label: string;
   href: string;
   badge_text?: string | null;
   sort_order?: number;
   is_active?: boolean;
-}): string {
+}): Promise<string> {
   const id = crypto.randomUUID();
-  const sortOrder = item.sort_order ?? 99;
-  const isActive = item.is_active === false ? 0 : 1;
-
-  db.prepare(`
-    INSERT INTO site_navigation (id, section_type, label, href, badge_text, sort_order, is_active, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `).run(id, item.section_type, item.label, item.href, item.badge_text || null, sortOrder, isActive);
-
+  await dbExecute(
+    `INSERT INTO site_navigation (id, section_type, label, href, badge_text, sort_order, is_active, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [
+      id,
+      item.section_type,
+      item.label,
+      item.href,
+      item.badge_text || null,
+      item.sort_order ?? 0,
+      item.is_active === false ? 0 : 1,
+    ]
+  );
   return id;
 }
 
-export function deleteNavItem(id: string): void {
-  db.prepare('DELETE FROM site_navigation WHERE id = ?').run(id);
+export async function updateNavItem(
+  id: string,
+  updates: Partial<Omit<NavItem, 'id' | 'section_type' | 'created_at'>>
+): Promise<void> {
+  const sets: string[] = [];
+  const params: any[] = [];
+
+  if (updates.label !== undefined) {
+    sets.push('label = ?');
+    params.push(updates.label);
+  }
+  if (updates.href !== undefined) {
+    sets.push('href = ?');
+    params.push(updates.href);
+  }
+  if (updates.badge_text !== undefined) {
+    sets.push('badge_text = ?');
+    params.push(updates.badge_text);
+  }
+  if (updates.sort_order !== undefined) {
+    sets.push('sort_order = ?');
+    params.push(updates.sort_order);
+  }
+  if (updates.is_active !== undefined) {
+    sets.push('is_active = ?');
+    params.push(updates.is_active ? 1 : 0);
+  }
+
+  if (sets.length === 0) return;
+
+  params.push(id);
+  await dbExecute(`UPDATE site_navigation SET ${sets.join(', ')} WHERE id = ?`, params);
+}
+
+export async function reorderNavItems(
+  items: { id: string; sort_order: number }[]
+): Promise<void> {
+  for (const item of items) {
+    await dbExecute('UPDATE site_navigation SET sort_order = ? WHERE id = ?', [
+      item.sort_order,
+      item.id,
+    ]);
+  }
+}
+
+export async function deleteNavItem(id: string): Promise<void> {
+  await dbExecute('DELETE FROM site_navigation WHERE id = ?', [id]);
 }

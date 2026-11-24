@@ -1,12 +1,12 @@
 import crypto from 'crypto';
-import { db, hashPassword } from './db';
+import { dbQueryOne, hashPassword } from './db';
 import { cookies } from 'next/headers';
 
 const SESSION_COOKIE = 'stocktimes_admin_session';
 const SESSION_SECRET = process.env.ADMIN_SECRET || 'thestocktimes_local_secret_key_2026_finance';
 
-export function verifyAdminCredentials(email: string, password: string):boolean {
-  const row = db.prepare('SELECT * FROM admins WHERE email = ?').get(email) as any;
+export async function verifyAdminCredentials(email: string, password: string): Promise<boolean> {
+  const row = (await dbQueryOne('SELECT * FROM admins WHERE email = ?', [email])) as any;
   if (!row) return false;
   return row.password_hash === hashPassword(password);
 }

@@ -10,8 +10,8 @@ const SIZE_CLASSES: Record<string, string> = {
   '970x250': 'max-w-[970px] mx-auto',
 };
 
-export default function DynamicAdSlot({ slotKey }: { slotKey: string }) {
-  const slot = getAdSlot(slotKey) as AdSlot | null;
+export default async function DynamicAdSlot({ slotKey }: { slotKey: string }) {
+  const slot = (await getAdSlot(slotKey)) as AdSlot | null;
 
   if (!slot || !slot.is_active) return null;
 

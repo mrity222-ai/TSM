@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getAllCategories } from '@/lib/db';
+import { getAllCategories, dbExecute } from '@/lib/db';
 import crypto from 'crypto';
 
 export async function GET() {
   try {
-    const categories = getAllCategories();
+    const categories = await getAllCategories();
     return NextResponse.json(categories);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -21,8 +21,10 @@ export async function POST(req: NextRequest) {
     }
 
     const id = crypto.randomUUID();
-    const stmt = db.prepare('INSERT INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)');
-    stmt.run(id, name.trim(), slug.trim(), description?.trim() || null);
+    await dbExecute(
+      'INSERT INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)',
+      [id, name.trim(), slug.trim(), description?.trim() || null]
+    );
 
     return NextResponse.json({ id, name, slug, description }, { status: 201 });
   } catch (error: any) {
@@ -39,7 +41,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+    await dbExecute('DELETE FROM categories WHERE id = ?', [id]);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

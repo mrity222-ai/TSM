@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { getDb } from '@/lib/db';
+import { dbQuery, dbQueryOne } from '@/lib/db';
 import DynamicAdSlot from '@/components/ads/DynamicAdSlot';
 import { FINANCIAL_TOOLS } from '@/lib/tools/toolsData';
 import {
@@ -33,10 +33,10 @@ export async function generateMetadata({
   params: Promise<{ categorySlug: string }>;
 }): Promise<Metadata> {
   const { categorySlug } = await params;
-  const db = getDb();
-  const category = db
-    .prepare('SELECT id, name, slug, description FROM categories WHERE slug = ?')
-    .get(categorySlug) as { id: string; name: string; slug: string; description?: string } | undefined;
+  const category = (await dbQueryOne(
+    'SELECT id, name, slug, description FROM categories WHERE slug = ?',
+    [categorySlug]
+  )) as { id: string; name: string; slug: string; description?: string } | null;
 
   if (!category) {
     return { title: 'Category Not Found | The Stock Times' };
@@ -70,51 +70,45 @@ export default async function CategoryLandingPage({
 }) {
   const { categorySlug } = await params;
   const { q } = await searchParams;
-  const db = getDb();
 
-  const allCategories = db
-    .prepare('SELECT id, name, slug, description FROM categories ORDER BY name ASC')
-    .all() as { id: string; name: string; slug: string; description?: string }[];
+  const allCategories = (await dbQuery(
+    'SELECT id, name, slug, description FROM categories ORDER BY name ASC'
+  )) as { id: string; name: string; slug: string; description?: string }[];
 
   const currentCategory = allCategories.find((c) => c.slug === categorySlug);
   if (!currentCategory) {
     notFound();
   }
 
-  const articles = (
-    q && q.trim() !== ''
-      ? db
-          .prepare(
-            `SELECT a.*, c.name AS category_name, c.slug AS category_slug
-             FROM articles a
-             JOIN categories c ON a.category_id = c.id
-             WHERE a.status = 'published' AND c.slug = ? AND a.title LIKE ?
-             ORDER BY a.published_at DESC LIMIT 20`
-          )
-          .all(categorySlug, `%${q.trim()}%`)
-      : db
-          .prepare(
-            `SELECT a.*, c.name AS category_name, c.slug AS category_slug
-             FROM articles a
-             JOIN categories c ON a.category_id = c.id
-             WHERE a.status = 'published' AND c.slug = ?
-             ORDER BY a.published_at DESC LIMIT 20`
-          )
-          .all(categorySlug)
-  ) as any[];
+  const articles = (await (q && q.trim() !== ''
+    ? dbQuery(
+        `SELECT a.*, c.name AS category_name, c.slug AS category_slug
+         FROM articles a
+         JOIN categories c ON a.category_id = c.id
+         WHERE a.status = 'published' AND c.slug = ? AND a.title LIKE ?
+         ORDER BY a.published_at DESC LIMIT 20`,
+        [categorySlug, `%${q.trim()}%`]
+      )
+    : dbQuery(
+        `SELECT a.*, c.name AS category_name, c.slug AS category_slug
+         FROM articles a
+         JOIN categories c ON a.category_id = c.id
+         WHERE a.status = 'published' AND c.slug = ?
+         ORDER BY a.published_at DESC LIMIT 20`,
+        [categorySlug]
+      ))) as any[];
 
   const heroArticle = articles[0];
 
   // Smart Side-Fill: Fetch trending fallback across site so right column is never empty and hero never stretches
-  const trendingFallback = db
-    .prepare(
-      `SELECT a.*, c.name AS category_name, c.slug AS category_slug
-       FROM articles a
-       JOIN categories c ON a.category_id = c.id
-       WHERE a.status = 'published' AND a.id != ?
-       ORDER BY a.published_at DESC LIMIT 6`
-    )
-    .all(heroArticle?.id || '') as any[];
+  const trendingFallback = (await dbQuery(
+    `SELECT a.*, c.name AS category_name, c.slug AS category_slug
+     FROM articles a
+     JOIN categories c ON a.category_id = c.id
+     WHERE a.status = 'published' AND a.id != ?
+     ORDER BY a.published_at DESC LIMIT 6`,
+    [heroArticle?.id || '']
+  )) as any[];
 
   let sideTrending: any[] = [];
   if (articles.length >= 3) {

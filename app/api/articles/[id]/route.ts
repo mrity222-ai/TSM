@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getArticleById } from '@/lib/db';
+import { getArticleById, dbExecute } from '@/lib/db';
 
 export async function GET(
   req: NextRequest,
@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const article = getArticleById(id);
+    const article = await getArticleById(id);
     if (!article) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 });
     }
@@ -25,7 +25,7 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    const existing = getArticleById(id);
+    const existing = await getArticleById(id);
     if (!existing) {
       return NextResponse.json({ error: 'Article not found' }, { status: 404 });
     }
@@ -58,8 +58,8 @@ export async function PUT(
 
     const now = new Date().toISOString();
 
-    const stmt = db.prepare(`
-      UPDATE articles SET
+    await dbExecute(
+      `UPDATE articles SET
         title = ?,
         slug = ?,
         category_id = ?,
@@ -84,35 +84,34 @@ export async function PUT(
         status = ?,
         published_at = ?,
         updated_at = ?
-      WHERE id = ?
-    `);
-
-    stmt.run(
-      title,
-      slug,
-      category_id || null,
-      author_name || existing.author_name,
-      author_role || (existing as any).author_role || 'Global Markets & Equity Research',
-      is_featured !== undefined ? (is_featured ? 1 : 0) : ((existing as any).is_featured ? 1 : 0),
-      featured_image || null,
-      image_alt || title,
-      JSON.stringify(key_takeaways || []),
-      JSON.stringify(entity_tags || []),
-      source_citation || null,
-      direct_answer || null,
-      JSON.stringify(faqs || []),
-      content,
-      focus_keyword || null,
-      seo_title || title,
-      seo_description || null,
-      canonical_url || null,
-      affiliate_title || null,
-      affiliate_url || null,
-      affiliate_cta || 'Explore Platform',
-      status || existing.status,
-      published_at || (status === 'published' ? (existing.published_at || now) : existing.published_at),
-      now,
-      id
+      WHERE id = ?`,
+      [
+        title,
+        slug,
+        category_id || null,
+        author_name || existing.author_name,
+        author_role || (existing as any).author_role || 'Global Markets & Equity Research',
+        is_featured !== undefined ? (is_featured ? 1 : 0) : ((existing as any).is_featured ? 1 : 0),
+        featured_image || null,
+        image_alt || title,
+        JSON.stringify(key_takeaways || []),
+        JSON.stringify(entity_tags || []),
+        source_citation || null,
+        direct_answer || null,
+        JSON.stringify(faqs || []),
+        content,
+        focus_keyword || null,
+        seo_title || title,
+        seo_description || null,
+        canonical_url || null,
+        affiliate_title || null,
+        affiliate_url || null,
+        affiliate_cta || 'Explore Platform',
+        status || existing.status,
+        published_at || (status === 'published' ? (existing.published_at || now) : existing.published_at),
+        now,
+        id,
+      ]
     );
 
     return NextResponse.json({ success: true });
@@ -127,7 +126,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    db.prepare('DELETE FROM articles WHERE id = ?').run(id);
+    await dbExecute('DELETE FROM articles WHERE id = ?', [id]);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

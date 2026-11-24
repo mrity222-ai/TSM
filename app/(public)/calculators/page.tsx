@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Metadata } from 'next';
-import { getDb } from '@/lib/db';
+import { dbQuery } from '@/lib/db';
 import DynamicAdSlot from '@/components/ads/DynamicAdSlot';
 import { FINANCIAL_TOOLS } from '@/lib/tools/toolsData';
 import {
@@ -22,18 +22,14 @@ export const metadata: Metadata = {
 };
 
 export default async function CalculatorsDirectoryPage() {
-  const db = getDb();
-
-  const trendingArticles = db
-    .prepare(
-      `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
-              c.name AS category_name, c.slug AS category_slug
-       FROM articles a
-       JOIN categories c ON a.category_id = c.id
-       WHERE a.status = 'published'
-       ORDER BY a.published_at DESC LIMIT 8`
-    )
-    .all() as any[];
+  const trendingArticles = await dbQuery(
+    `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
+            c.name AS category_name, c.slug AS category_slug
+     FROM articles a
+     JOIN categories c ON a.category_id = c.id
+     WHERE a.status = 'published'
+     ORDER BY a.published_at DESC LIMIT 8`
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3 pb-10 space-y-5 sm:space-y-6 overflow-x-hidden">

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getDb } from '@/lib/db';
+import { dbQuery } from '@/lib/db';
 import { ArrowRight, BookOpen, Clock } from 'lucide-react';
 
 interface RecommendedBlogItem {
@@ -14,23 +14,19 @@ interface RecommendedBlogItem {
   readTime: string;
 }
 
-export default function NativeSponsoredGrid() {
+export default async function NativeSponsoredGrid() {
   let blogs: RecommendedBlogItem[] = [];
 
   try {
-    const db = getDb();
-    // Exclusively query real published articles with featured images from the database
-    const rows = db
-      .prepare(
-        `SELECT a.id, a.title, a.slug, a.seo_description, a.direct_answer, a.featured_image, a.author_name, a.published_at,
-                c.name AS category_name, c.slug AS category_slug
-         FROM articles a
-         JOIN categories c ON a.category_id = c.id
-         WHERE a.status = 'published' AND a.featured_image IS NOT NULL AND a.featured_image != ''
-         ORDER BY a.published_at DESC
-         LIMIT 3`
-      )
-      .all() as any[];
+    const rows = await dbQuery(
+      `SELECT a.id, a.title, a.slug, a.seo_description, a.direct_answer, a.featured_image, a.author_name, a.published_at,
+              c.name AS category_name, c.slug AS category_slug
+       FROM articles a
+       JOIN categories c ON a.category_id = c.id
+       WHERE a.status = 'published' AND a.featured_image IS NOT NULL AND a.featured_image != ''
+       ORDER BY a.published_at DESC
+       LIMIT 3`
+    );
 
     if (rows && rows.length > 0) {
       blogs = rows.map((b) => ({

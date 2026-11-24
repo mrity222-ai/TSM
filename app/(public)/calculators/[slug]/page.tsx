@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { getDb } from '@/lib/db';
+import { dbQuery } from '@/lib/db';
 import { FINANCIAL_TOOLS } from '@/lib/tools/toolsData';
 import CalculatorEngine from '@/components/tools/CalculatorEngine';
 import DynamicAdSlot from '@/components/ads/DynamicAdSlot';
@@ -45,17 +45,14 @@ export default async function SingleCalculatorPage({
   const tool = FINANCIAL_TOOLS.find((t) => t.slug === slug);
   if (!tool) notFound();
 
-  const db = getDb();
-  const trendingArticles = db
-    .prepare(
-      `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
-              c.name AS category_name, c.slug AS category_slug
-       FROM articles a
-       JOIN categories c ON a.category_id = c.id
-       WHERE a.status = 'published'
-       ORDER BY a.published_at DESC LIMIT 5`
-    )
-    .all() as any[];
+  const trendingArticles = await dbQuery(
+    `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
+            c.name AS category_name, c.slug AS category_slug
+     FROM articles a
+     JOIN categories c ON a.category_id = c.id
+     WHERE a.status = 'published'
+     ORDER BY a.published_at DESC LIMIT 5`
+  );
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thestocktimes.online';
 

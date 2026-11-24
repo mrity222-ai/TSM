@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { getDb } from '@/lib/db';
+import { dbQuery, dbQueryOne } from '@/lib/db';
 import DynamicAdSlot from '@/components/ads/DynamicAdSlot';
 import { FINANCIAL_TOOLS } from '@/lib/tools/toolsData';
 import {
@@ -40,16 +40,14 @@ export async function generateMetadata({
   params: Promise<{ categorySlug: string; articleSlug: string }>;
 }): Promise<Metadata> {
   const { categorySlug, articleSlug } = await params;
-  const db = getDb();
 
-  const article = db
-    .prepare(
-      `SELECT a.*, c.name AS category_name, c.slug AS category_slug
-       FROM articles a
-       JOIN categories c ON a.category_id = c.id
-       WHERE a.slug = ? AND c.slug = ? AND a.status = 'published'`
-    )
-    .get(articleSlug, categorySlug) as any;
+  const article = (await dbQueryOne(
+    `SELECT a.*, c.name AS category_name, c.slug AS category_slug
+     FROM articles a
+     JOIN categories c ON a.category_id = c.id
+     WHERE a.slug = ? AND c.slug = ? AND a.status = 'published'`,
+    [articleSlug, categorySlug]
+  )) as any;
 
   if (!article) {
     return { title: 'Article Not Found | The Stock Times' };
@@ -82,49 +80,45 @@ export default async function ArticleDetailPage({
   params: Promise<{ categorySlug: string; articleSlug: string }>;
 }) {
   const { categorySlug, articleSlug } = await params;
-  const db = getDb();
 
-  const article = db
-    .prepare(
-      `SELECT a.*, c.name AS category_name, c.slug AS category_slug
-       FROM articles a
-       JOIN categories c ON a.category_id = c.id
-       WHERE a.slug = ? AND c.slug = ? AND a.status = 'published'`
-    )
-    .get(articleSlug, categorySlug) as any;
+  const article = (await dbQueryOne(
+    `SELECT a.*, c.name AS category_name, c.slug AS category_slug
+     FROM articles a
+     JOIN categories c ON a.category_id = c.id
+     WHERE a.slug = ? AND c.slug = ? AND a.status = 'published'`,
+    [articleSlug, categorySlug]
+  )) as any;
 
   if (!article) {
     notFound();
   }
 
   // All Categories for Quick Discovery
-  const allCategories = db
-    .prepare('SELECT id, name, slug FROM categories ORDER BY name ASC')
-    .all() as { id: string; name: string; slug: string }[];
+  const allCategories = (await dbQuery(
+    'SELECT id, name, slug FROM categories ORDER BY name ASC'
+  )) as { id: string; name: string; slug: string }[];
 
   // 1. Same Category Articles
-  const sameCategoryArticles = db
-    .prepare(
-      `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
-              c.name AS category_name, c.slug AS category_slug
-       FROM articles a
-       JOIN categories c ON a.category_id = c.id
-       WHERE a.status = 'published' AND c.slug = ? AND a.id != ?
-       ORDER BY a.published_at DESC LIMIT 6`
-    )
-    .all(categorySlug, article.id) as any[];
+  const sameCategoryArticles = (await dbQuery(
+    `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
+            c.name AS category_name, c.slug AS category_slug
+     FROM articles a
+     JOIN categories c ON a.category_id = c.id
+     WHERE a.status = 'published' AND c.slug = ? AND a.id != ?
+     ORDER BY a.published_at DESC LIMIT 6`,
+    [categorySlug, article.id]
+  )) as any[];
 
   // 2. Global Recent & Trending Articles (with images)
-  const globalTrending = db
-    .prepare(
-      `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
-              c.name AS category_name, c.slug AS category_slug
-       FROM articles a
-       JOIN categories c ON a.category_id = c.id
-       WHERE a.status = 'published' AND a.id != ?
-       ORDER BY a.published_at DESC LIMIT 12`
-    )
-    .all(article.id) as any[];
+  const globalTrending = (await dbQuery(
+    `SELECT a.id, a.title, a.slug, a.featured_image, a.image_alt, a.author_name, a.published_at,
+            c.name AS category_name, c.slug AS category_slug
+     FROM articles a
+     JOIN categories c ON a.category_id = c.id
+     WHERE a.status = 'published' AND a.id != ?
+     ORDER BY a.published_at DESC LIMIT 12`,
+    [article.id]
+  )) as any[];
 
   // 3. Tech & AI News Feed (using active DB category slugs)
   const techRaw = globalTrending.filter(

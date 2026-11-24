@@ -53,7 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const articles = getAllArticles('published');
+    const articles = await getAllArticles('published');
     const articleUrls: MetadataRoute.Sitemap = articles.map((art) => ({
       url: `${siteUrl}/${art.categories?.slug || 'global-markets'}/${art.slug}`,
       lastModified: new Date(art.updated_at || art.published_at || Date.now()),
@@ -61,7 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
 
-    const categories = getAllCategories();
+    const categories = await getAllCategories();
     const categoryUrls: MetadataRoute.Sitemap = categories.map((cat) => ({
       url: `${siteUrl}/${cat.slug}`,
       lastModified: new Date(),

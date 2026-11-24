@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     const activeOnly = searchParams.get('activeOnly') === 'true';
 
     const items = activeOnly
-      ? getNavigationItems(section, true)
-      : getNavigationItems(section, false);
+      ? await getNavigationItems(section, true)
+      : await getNavigationItems(section, false);
 
     return NextResponse.json(items);
   } catch (err: any) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL (href) is required' }, { status: 400 });
     }
 
-    const id = insertNavItem({
+    const id = await insertNavItem({
       section_type,
       label: label.trim(),
       href: href.trim(),
@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest) {
 
     // Case 1: Batch reorder
     if (Array.isArray(body.items)) {
-      reorderNavItems(body.items);
+      await reorderNavItems(body.items);
       return NextResponse.json({ success: true, message: 'Reordered successfully' });
     }
 
@@ -72,7 +72,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Item id is required for update' }, { status: 400 });
     }
 
-    updateNavItem(id, {
+    await updateNavItem(id, {
       ...(label !== undefined ? { label: label.trim() } : {}),
       ...(href !== undefined ? { href: href.trim() } : {}),
       ...(badge_text !== undefined ? { badge_text: badge_text ? badge_text.trim() : null } : {}),
@@ -96,7 +96,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Item id is required' }, { status: 400 });
     }
 
-    deleteNavItem(id);
+    await deleteNavItem(id);
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Error in DELETE /api/navigation:', err);
