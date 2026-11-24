@@ -6,11 +6,35 @@ import crypto from 'crypto';
 import { Article, Category, AdSlot, NavItem } from '../types/database';
 
 // Global singletons to prevent multiple connections during Next.js hot-reloading & serverless invocations
+interface CacheEntry<T> {
+  data: T;
+  expiry: number;
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __stocktimes_sqlite_db: DatabaseSync | undefined;
   // eslint-disable-next-line no-var
   var __stocktimes_mysql_pool: Pool | undefined;
+  // eslint-disable-next-line no-var
+  var __stocktimes_query_cache: Map<string, CacheEntry<any>> | undefined;
+}
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in-memory cache
+
+export function getQueryCache(): Map<string, CacheEntry<any>> {
+  if (!global.__stocktimes_query_cache) {
+    global.__stocktimes_query_cache = new Map();
+  }
+  return global.__stocktimes_query_cache;
+}
+
+/**
+ * Instantly purges query cache so edits in admin panel reflect immediately
+ */
+export function clearDbCache() {
+  const cache = getQueryCache();
+  cache.clear();
 }
 
 // Ensure local data directory exists for SQLite fallback
@@ -74,75 +98,120 @@ export const getDb = () => getSQLiteDatabase();
 export const db = getSQLiteDatabase();
 
 /**
- * Universal Query Runner (Runs on MySQL when DB_HOST is configured, else SQLite)
+ * Universal Query Runner with 5-Minute In-Memory Cache (Drastically reduces database connections)
  */
-export async function dbQuery<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+export async function dbQuery<T = any>(sql: string, params: any[] = [], useCache = true): Promise<T[]> {
+  const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
+  const cacheKey = isSelect && useCache ? `QUERY::${sql}::${JSON.stringify(params)}` : null;
+
+  if (cacheKey) {
+    const cache = getQueryCache();
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data as T[];
+    }
+  }
+
   const pool = getMySQLPool();
+  let result: T[] = [];
+
   if (pool) {
     try {
       const [rows] = await pool.query(sql, params);
-      return (rows || []) as T[];
+      result = (rows || []) as T[];
     } catch (err: any) {
       console.error('MySQL query error:', err.message);
       // Fallback to SQLite if MySQL network hiccups during local dev
       try {
-        return getSQLiteDatabase().prepare(sql).all(...params) as T[];
+        result = getSQLiteDatabase().prepare(sql).all(...params) as T[];
       } catch {
-        return [];
+        result = [];
       }
+    }
+  } else {
+    try {
+      result = getSQLiteDatabase().prepare(sql).all(...params) as T[];
+    } catch (err: any) {
+      console.error('SQLite query error:', err.message);
+      result = [];
     }
   }
 
-  try {
-    return getSQLiteDatabase().prepare(sql).all(...params) as T[];
-  } catch (err: any) {
-    console.error('SQLite query error:', err.message);
-    return [];
+  if (cacheKey && result) {
+    const cache = getQueryCache();
+    cache.set(cacheKey, { data: result, expiry: Date.now() + CACHE_TTL_MS });
   }
+
+  return result;
 }
 
 /**
- * Universal Query One Runner (Returns single record or null)
+ * Universal Query One Runner with 5-Minute In-Memory Cache
  */
-export async function dbQueryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+export async function dbQueryOne<T = any>(sql: string, params: any[] = [], useCache = true): Promise<T | null> {
+  const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
+  const cacheKey = isSelect && useCache ? `ONE::${sql}::${JSON.stringify(params)}` : null;
+
+  if (cacheKey) {
+    const cache = getQueryCache();
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data as T;
+    }
+  }
+
   const pool = getMySQLPool();
+  let result: T | null = null;
+
   if (pool) {
     try {
-      const [rows] = await pool.query(sql, params) as any[];
+      const [rows] = (await pool.query(sql, params)) as any[];
       if (rows && rows.length > 0) {
-        return rows[0] as T;
+        result = rows[0] as T;
       }
-      return null;
     } catch (err: any) {
       console.error('MySQL queryOne error:', err.message);
       try {
         const row = getSQLiteDatabase().prepare(sql).get(...params);
-        return (row as T) || null;
+        result = (row as T) || null;
       } catch {
-        return null;
+        result = null;
       }
+    }
+  } else {
+    try {
+      const row = getSQLiteDatabase().prepare(sql).get(...params);
+      result = (row as T) || null;
+    } catch (err: any) {
+      console.error('SQLite queryOne error:', err.message);
+      result = null;
     }
   }
 
-  try {
-    const row = getSQLiteDatabase().prepare(sql).get(...params);
-    return (row as T) || null;
-  } catch (err: any) {
-    console.error('SQLite queryOne error:', err.message);
-    return null;
+  if (cacheKey) {
+    const cache = getQueryCache();
+    cache.set(cacheKey, { data: result, expiry: Date.now() + CACHE_TTL_MS });
   }
+
+  return result;
 }
 
 /**
  * Universal Execute Runner (For INSERT, UPDATE, DELETE)
+ * Automatically clears the in-memory query cache so changes appear immediately!
  */
 export async function dbExecute(sql: string, params: any[] = []): Promise<any> {
   const pool = getMySQLPool();
+  let result: any;
   if (pool) {
-    const [result] = await pool.execute(sql, params);
-    return result;
+    const [execResult] = await pool.execute(sql, params);
+    result = execResult;
+  } else {
+    result = getSQLiteDatabase().prepare(sql).run(...params);
   }
-  return getSQLiteDatabase().prepare(sql).run(...params);
+  // Instantly invalidate query cache on any write operation
+  clearDbCache();
+  return result;
 }
 
 // ----------------- Parsers & Helpers -----------------
