@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
+import { requireAdmin } from '@/lib/auth';
 import {
   getNavigationItems,
   getAllNavigationItems,
@@ -26,6 +28,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await request.json();
     const { section_type, label, href, badge_text, sort_order, is_active } = body;
@@ -49,6 +54,7 @@ export async function POST(request: NextRequest) {
       is_active: is_active !== false,
     });
 
+    revalidatePath('/', 'layout');
     return NextResponse.json({ success: true, id }, { status: 201 });
   } catch (err: any) {
     console.error('Error in POST /api/navigation:', err);
@@ -57,12 +63,16 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await request.json();
 
     // Case 1: Batch reorder
     if (Array.isArray(body.items)) {
       await reorderNavItems(body.items);
+      revalidatePath('/', 'layout');
       return NextResponse.json({ success: true, message: 'Reordered successfully' });
     }
 
@@ -80,6 +90,7 @@ export async function PUT(request: NextRequest) {
       ...(is_active !== undefined ? { is_active: Boolean(is_active) } : {}),
     });
 
+    revalidatePath('/', 'layout');
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Error in PUT /api/navigation:', err);
@@ -88,6 +99,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -97,6 +111,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await deleteNavItem(id);
+    revalidatePath('/', 'layout');
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Error in DELETE /api/navigation:', err);

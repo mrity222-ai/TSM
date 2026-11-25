@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAllArticles, dbExecute } from '@/lib/db';
+import { requireAdmin } from '@/lib/auth';
 import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
@@ -14,6 +16,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await req.json();
     const {
@@ -88,6 +93,7 @@ export async function POST(req: NextRequest) {
       ]
     );
 
+    revalidatePath('/', 'layout');
     return NextResponse.json({ id, title, slug, status }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

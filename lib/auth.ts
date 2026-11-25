@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { dbQueryOne, hashPassword } from './db';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
 const SESSION_COOKIE = 'stocktimes_admin_session';
 const SESSION_SECRET = process.env.ADMIN_SECRET || 'thestocktimes_local_secret_key_2026_finance';
@@ -62,6 +63,21 @@ export async function getAdminSession(): Promise<{ email: string } | null> {
   const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sessionToken) return null;
   return verifySessionToken(sessionToken);
+}
+
+/**
+ * Guard for admin-only API write/upload endpoints.
+ * Returns a 401 NextResponse when unauthenticated, or null when authorized.
+ */
+export async function requireAdmin(): Promise<NextResponse | null> {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json(
+      { error: 'Unauthorized: Admin authentication required' },
+      { status: 401 }
+    );
+  }
+  return null;
 }
 
 export { SESSION_COOKIE };

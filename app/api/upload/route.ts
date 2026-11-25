@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
+import { requireAdmin } from '@/lib/auth';
 
 // Configure Cloudinary
 if (process.env.CLOUDINARY_CLOUD_NAME) {
@@ -14,6 +15,9 @@ if (process.env.CLOUDINARY_CLOUD_NAME) {
 }
 
 export async function POST(req: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;

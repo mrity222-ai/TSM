@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAllAdSlots, dbExecute } from '@/lib/db';
+import { requireAdmin } from '@/lib/auth';
 import crypto from 'crypto';
 
 export async function GET() {
@@ -12,6 +14,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await req.json();
     const { slot_label, slot_key, ad_type, ad_size, bullet_points, is_active } = body;
@@ -37,6 +42,7 @@ export async function POST(req: NextRequest) {
       ]
     );
 
+    revalidatePath('/', 'layout');
     return NextResponse.json({ id, slot_label, slot_key, ad_type, ad_size, is_active }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -44,6 +50,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await req.json();
     const {
@@ -85,6 +94,7 @@ export async function PUT(req: NextRequest) {
       ]
     );
 
+    revalidatePath('/', 'layout');
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -92,6 +102,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
@@ -101,6 +114,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await dbExecute('DELETE FROM ad_slots WHERE id = ?', [id]);
+    revalidatePath('/', 'layout');
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
