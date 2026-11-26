@@ -2,12 +2,13 @@ import Link from 'next/link';
 import { Metadata } from 'next';
 import { dbQuery } from '@/lib/db';
 import DynamicAdSlot from '@/components/ads/DynamicAdSlot';
-import { FINANCIAL_TOOLS } from '@/lib/tools/toolsData';
+import { FINANCIAL_TOOLS, CALCULATOR_DISCLAIMER } from '@/lib/tools/toolsData';
 import {
   Calculator,
   ArrowRight,
   Flame,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 
 export const revalidate = 60;
@@ -31,8 +32,45 @@ export default async function CalculatorsDirectoryPage() {
      ORDER BY a.published_at DESC LIMIT 8`
   );
 
+  const hubFaqs = [
+    {
+      question: 'Are all wealth management calculators on The Stock Times free to use?',
+      answer:
+        'Yes. Every calculator on The Stock Times—including SIP, Step-Up SIP, SWP, Lumpsum, EMI, Brokerage, and Stock Comparison—is 100% free with unlimited calculations and no sign-up required.',
+    },
+    {
+      question: 'Do these calculators support Indian Rupees (₹) and Indian tax rules?',
+      answer:
+        'Yes. All calculators default to INR (₹) formatting and reflect Indian market conventions such as 12.5% LTCG reference rates, STT, GST, SEBI charges, and bank FD slab comparisons.',
+    },
+    {
+      question: 'Are the calculated returns and maturity values guaranteed?',
+      answer:
+        'No. Calculator outputs are mathematical estimates based on the return rate, tenure, and amounts you enter. Mutual fund and stock market investments are subject to market risks.',
+    },
+    {
+      question: 'Which calculator should I start with as a beginner?',
+      answer:
+        'Beginners usually start with the SIP Calculator or Step-Up SIP Calculator to plan monthly mutual fund goals, or the FD vs Mutual Fund Calculator to compare post-tax returns.',
+    },
+  ];
+
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: hubFaqs.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+    })),
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3 pb-10 space-y-5 sm:space-y-6 overflow-x-hidden">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
         <Link href="/" className="hover:text-blue-600">Home</Link>
@@ -52,7 +90,7 @@ export default async function CalculatorsDirectoryPage() {
           <h1 className="text-2xl sm:text-3xl font-serif font-bold">
             Wealth Management Tools &amp; Financial Calculators
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
             Plan mutual fund SIPs, retirement corpus, loan EMIs, tax savings, and stock average prices with real-time visual compounding breakdowns.
           </p>
         </div>
@@ -95,7 +133,7 @@ export default async function CalculatorsDirectoryPage() {
                   <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-700 transition">
                     {tool.shortTitle}
                   </h3>
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {tool.description}
                   </p>
                 </div>
@@ -125,7 +163,7 @@ export default async function CalculatorsDirectoryPage() {
                     <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-700 transition">
                       {tool.shortTitle}
                     </h3>
-                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    <p className="text-sm text-slate-600 leading-relaxed">
                       {tool.description}
                     </p>
                   </div>
@@ -137,8 +175,44 @@ export default async function CalculatorsDirectoryPage() {
             </div>
           )}
 
-          {/* ✅ MASTER AD SLOT 4: BEFORE TRENDING COVERAGE */}
+          {/* ✅ MASTER AD SLOT 4: BEFORE SEO INTRO */}
           <DynamicAdSlot slotKey="home_feed_mid" />
+
+          {/* SEO INTRO SECTION (~170 words) */}
+          <section className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-7 space-y-3.5 shadow-2xs">
+            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
+              Plan Smarter Investments with The Stock Times Financial Calculators
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+              Making sound financial decisions requires clear numbers rather than guesswork. Whether you are starting your first monthly Systematic Investment Plan (SIP), comparing a Direct mutual fund against a Regular plan, or checking how much an annual 10% step-up accelerates your ₹1 Crore goal, our interactive suite turns complex compounding math into instant visual answers.
+            </p>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+              For active stock market participants and IPO investors in India, this hub also brings together practical trading tools—including a Stock Average Calculator, Brokerage &amp; Net Profit Calculator with STT and GST breakdowns, Graham Intrinsic Value Peer Comparison, and an IPO Allotment Probability Estimator. Fixed-income savers and retirees can compare Bank FDs against mutual funds or map out steady monthly retirement cashflows using the SWP and Retirement Corpus calculators.
+            </p>
+            <p className="flex items-start gap-2 rounded-xl bg-amber-50/80 border border-amber-200/80 px-4 py-2.5 text-xs sm:text-sm text-amber-950 leading-relaxed">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>{CALCULATOR_DISCLAIMER}</span>
+            </p>
+          </section>
+
+          {/* HUB FAQS */}
+          <section className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-7 space-y-4 shadow-2xs">
+            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
+              Frequently Asked Questions
+            </h2>
+            <div className="divide-y divide-slate-100">
+              {hubFaqs.map((faq, idx) => (
+                <div key={idx} className="py-3.5 space-y-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                    {faq.question}
+                  </h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {faq.answer}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
 
         {/* Right 4 Columns: Sticky Sidebar (Ad + Trending Market News) */}

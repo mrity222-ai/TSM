@@ -19,7 +19,6 @@ const defaultNavCategories = [
 export default function Navbar() {
   const [navCategories, setNavCategories] = useState<{ name: string; href: string }[]>(defaultNavCategories);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
@@ -78,24 +77,20 @@ export default function Navbar() {
 
           {/* Right Action Controls */}
           <div className="flex items-center gap-2.5">
-            {/* Currency Switcher */}
-            <button
-              type="button"
-              onClick={() => setCurrency(currency === 'USD' ? 'INR' : 'USD')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0F2439] hover:bg-[#16324F] text-white text-xs font-bold transition shadow-sm"
-              title="Switch Display Currency"
-            >
-              <Globe className="w-3.5 h-3.5 text-emerald-400" />
-              {currency === 'USD' ? 'US USD ($)' : 'IN INR (₹)'}
-            </button>
+            {/* India Market Badge */}
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold">
+              <Globe className="w-3.5 h-3.5 text-emerald-600" />
+              IN (₹)
+            </span>
 
             {/* Wealth Management Tools CTA */}
             <Link
               href="/calculators"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F2439] hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-[#0F2439] hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm whitespace-nowrap shrink-0"
             >
-              <Calculator className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Wealth Management Tools</span>
+              <Calculator className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="sm:hidden">Tools</span>
+              <span className="hidden sm:inline">Wealth Management Tools</span>
             </Link>
 
             {/* Mobile Hamburger */}
@@ -125,14 +120,10 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Live Market Feed Status Indicator */}
-          <div className="flex items-center gap-2 text-[11px] font-bold tracking-wider text-emerald-400">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
+          {/* Market Watch Indicator */}
+          <div className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-emerald-400">
             <Radio className="w-3.5 h-3.5" />
-            <span>LIVE MARKET FEED</span>
+            <span>MARKET WATCH</span>
           </div>
         </div>
 

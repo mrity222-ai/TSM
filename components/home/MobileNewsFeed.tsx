@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import DynamicAdSlot from '@/components/ads/DynamicAdSlot';
 import { FINANCIAL_TOOLS } from '@/lib/tools/toolsData';
-import { Star, Calculator, Search, ArrowRight, TrendingUp, Flame } from 'lucide-react';
+import { Calculator, Search, ArrowRight, TrendingUp, Flame } from 'lucide-react';
 
 interface MobileNewsFeedProps {
   articles: any[];
@@ -9,15 +9,6 @@ interface MobileNewsFeedProps {
   q?: string;
   searchFocus?: boolean;
 }
-
-const PILL_COLORS = [
-  'bg-rose-600 text-white',
-  'bg-emerald-600 text-white',
-  'bg-purple-700 text-white',
-  'bg-amber-500 text-slate-950',
-  'bg-indigo-600 text-white',
-  'bg-cyan-700 text-white',
-];
 
 export default function MobileNewsFeed({
   articles,
@@ -28,15 +19,15 @@ export default function MobileNewsFeed({
   const getHref = (art: any) =>
     `/${art.categories?.slug || art.category_slug || 'global-markets'}/${art.slug}`;
 
-  // Dynamically derive pulse pills from active categories in the database
+  // Uniform editorial pills: active = dark, others = clean light outline
   const pulsePills = [
-    { label: 'ALL NEWS', href: '/', style: 'bg-[#0B1C2D] text-white' },
-    ...(categories || []).map((cat, idx) => ({
+    { label: 'ALL NEWS', href: '/', active: true },
+    ...(categories || []).map((cat) => ({
       label: cat.name.toUpperCase(),
       href: `/${cat.slug}`,
-      style: PILL_COLORS[idx % PILL_COLORS.length],
+      active: false,
     })),
-    { label: 'WEALTH TOOLS', href: '/calculators', style: 'bg-blue-600 text-white' },
+    { label: 'WEALTH TOOLS', href: '/calculators', active: false },
   ];
 
   const featuredBrief = articles[0];
@@ -91,7 +82,11 @@ export default function MobileNewsFeed({
             <Link
               key={pill.label}
               href={pill.href}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold tracking-wide shadow-2xs ${pill.style}`}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide transition ${
+                pill.active
+                  ? 'bg-[#0B1C2D] text-white border border-[#0B1C2D]'
+                  : 'bg-white text-slate-700 border border-slate-300 hover:border-[#0B1C2D]'
+              }`}
             >
               {pill.label}
             </Link>
@@ -113,21 +108,23 @@ export default function MobileNewsFeed({
         </div>
       ) : (
         <>
-          {/* 2. GOLD-ACCENTED "FEATURED MARKET BRIEF" HERO CARD */}
+          {/* 2. CLEAN FEATURED HERO CARD (Single 'Featured' badge, light editorial surface) */}
           {featuredBrief && (
             <Link
               href={getHref(featuredBrief)}
-              className="block rounded-2xl bg-gradient-to-b from-[#2A2416] via-[#1B1811] to-[#0F172A] p-3.5 border-2 border-amber-400/80 shadow-md space-y-2.5 text-white"
+              className="block rounded-2xl bg-white p-4 border border-slate-200/90 shadow-xs space-y-3 text-slate-900"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300">
-                  FEATURED MARKET BRIEF
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#0B1C2D] text-white text-[11px] font-bold uppercase tracking-wider">
+                  Featured
                 </span>
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span className="text-[11px] font-bold uppercase text-blue-600">
+                  {featuredBrief.categories?.name || featuredBrief.category_name || 'MARKET BRIEF'}
+                </span>
               </div>
 
               {featuredBrief.featured_image && (
-                <div className="aspect-[16/9] rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+                <div className="aspect-[16/9] rounded-xl overflow-hidden bg-slate-100">
                   <img
                     src={featuredBrief.featured_image}
                     alt={featuredBrief.image_alt || featuredBrief.title}
@@ -138,16 +135,14 @@ export default function MobileNewsFeed({
                 </div>
               )}
 
-              <h1 className="text-base font-serif font-bold leading-snug text-white">
+              <h1 className="text-lg font-serif font-bold leading-snug text-slate-950">
                 {featuredBrief.title}
               </h1>
 
-              <div className="flex items-center justify-between text-[10px] text-amber-200/80 pt-1 border-t border-white/10">
-                <span className="font-bold uppercase">
-                  {featuredBrief.categories?.name || featuredBrief.category_name || 'MARKET BRIEF'}
-                </span>
-                <span className="font-bold text-amber-300 inline-flex items-center gap-1">
-                  Read Analysis <ArrowRight className="w-3 h-3" />
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                <span>{featuredBrief.author_name || 'The Stock Times'}</span>
+                <span className="font-bold text-blue-600 inline-flex items-center gap-1">
+                  Read Analysis <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </div>
             </Link>
@@ -157,9 +152,9 @@ export default function MobileNewsFeed({
           {latestCoverage.length > 0 && (
             <section className="space-y-2">
               <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                <h2 className="text-sm font-extrabold text-slate-950">Latest Coverage</h2>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
-                  <TrendingUp className="w-3 h-3" /> Live Desk
+                <h2 className="text-base font-extrabold text-slate-950">Latest Coverage</h2>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
+                  <TrendingUp className="w-3.5 h-3.5" /> Top Stories
                 </span>
               </div>
 
@@ -171,13 +166,13 @@ export default function MobileNewsFeed({
                     className="flex items-center justify-between gap-3 py-3"
                   >
                     <div className="flex-1 min-w-0 space-y-1">
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-600 block">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-600 block">
                         {item.categories?.name || item.category_name || 'MARKETS'}
                       </span>
-                      <h3 className="text-[13px] font-serif font-bold text-slate-900 leading-snug line-clamp-2">
+                      <h3 className="text-sm font-serif font-bold text-slate-900 leading-snug">
                         {item.title}
                       </h3>
-                      <span className="text-[10px] text-slate-400 block truncate">
+                      <span className="text-xs text-slate-500 block truncate">
                         {item.author_name || 'The Stock Times'}
                       </span>
                     </div>
@@ -218,17 +213,17 @@ export default function MobileNewsFeed({
                   <Link
                     key={snap.id}
                     href={getHref(snap)}
-                    className="min-w-[235px] snap-start bg-white/5 border border-white/10 rounded-xl p-3 space-y-1.5 flex flex-col justify-between"
+                    className="min-w-[260px] snap-start bg-white/5 border border-white/10 rounded-xl p-4 space-y-2 flex flex-col justify-between"
                   >
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-bold uppercase text-emerald-300">
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold uppercase text-emerald-300">
                         {snap.categories?.name || snap.category_name || 'MARKETS'}
                       </span>
-                      <h3 className="text-xs font-bold leading-snug line-clamp-2">
+                      <h3 className="text-sm font-bold leading-snug">
                         {snap.title}
                       </h3>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-400">
+                    <span className="text-xs font-bold text-emerald-400">
                       Quick Read →
                     </span>
                   </Link>

@@ -41,27 +41,33 @@ export default async function HomePage({
   const getArticleHref = (art: Article) =>
     `/${art.categories?.slug || 'global-markets'}/${art.slug}`;
 
-  // Build Category Asymmetric Blocks with Smart Side-Fill
+  // Track articles already shown in Hero + Side Trending so category blocks never repeat them
+  const usedInHero = new Set<string>(
+    [heroArticle, ...sideTrending].filter(Boolean).map((a) => a.id)
+  );
+  const usedInCategories = new Set<string>(usedInHero);
+
+  // Build Category Asymmetric Blocks without repeating Hero or previously shown stories
   const categoryBlocks = categories
     .map((cat) => {
       const catArticles = articles.filter(
         (a) => a.categories?.slug === cat.slug || a.category_id === cat.id
       );
-      const otherArticles = articles.filter(
-        (a) => a.categories?.slug !== cat.slug && a.category_id !== cat.id
+      const freshCatArticles = catArticles.filter((a) => !usedInHero.has(a.id));
+      const lead = freshCatArticles[0] || catArticles[0];
+      if (!lead) return null;
+
+      usedInCategories.add(lead.id);
+
+      const remainingCat = catArticles.filter(
+        (a) => a.id !== lead.id && !usedInCategories.has(a.id)
+      );
+      const unusedOthers = articles.filter(
+        (a) => a.id !== lead.id && !usedInCategories.has(a.id)
       );
 
-      const lead = catArticles[0] || otherArticles[0];
-      let side: Article[] = [];
-      if (catArticles.length >= 3) {
-        side = catArticles.slice(1, 3);
-      } else if (catArticles.length === 2) {
-        side = [catArticles[1], otherArticles[0]].filter(Boolean);
-      } else if (catArticles.length === 1) {
-        side = otherArticles.slice(0, 2);
-      } else {
-        side = otherArticles.slice(1, 3);
-      }
+      const side = [...remainingCat, ...unusedOthers].slice(0, 2);
+      side.forEach((s) => usedInCategories.add(s.id));
 
       return {
         category: cat,
@@ -70,7 +76,7 @@ export default async function HomePage({
         totalCount: catArticles.length,
       };
     })
-    .filter((b) => b.lead);
+    .filter((b): b is NonNullable<typeof b> => Boolean(b));
 
   return (
     <>
@@ -129,8 +135,8 @@ export default async function HomePage({
                   </h1>
                 </div>
                 <FloatingBadge>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                    <TrendingUp className="w-3 h-3" /> Live Desk
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    <TrendingUp className="w-3.5 h-3.5" /> Top Stories
                   </span>
                 </FloatingBadge>
               </div>
@@ -167,12 +173,12 @@ export default async function HomePage({
                       </span>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold text-slate-950 group-hover:text-blue-700 transition leading-snug line-clamp-2">
+                    <div className="space-y-2">
+                      <h2 className="text-xl sm:text-2xl lg:text-[26px] font-bold text-slate-950 group-hover:text-blue-700 transition leading-snug">
                         {heroArticle.title}
                       </h2>
                       {heroArticle.seo_description && (
-                        <p className="text-xs sm:text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                        <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                           {heroArticle.seo_description}
                         </p>
                       )}
@@ -240,23 +246,23 @@ export default async function HomePage({
                     <Link
                       key={brief.id}
                       href={getArticleHref(brief)}
-                      className="min-w-[255px] md:min-w-0 snap-start bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-4 space-y-2 transition flex flex-col justify-between hover:scale-[1.02]"
+                      className="min-w-[270px] md:min-w-0 snap-start bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-5 space-y-2.5 transition flex flex-col justify-between hover:scale-[1.02]"
                     >
-                      <div className="space-y-1.5">
-                        <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase">
+                      <div className="space-y-2">
+                        <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[11px] font-bold uppercase">
                           {brief.categories?.name || 'SNAPSHOT'}
                         </span>
-                        <h3 className="text-sm font-bold leading-snug text-white line-clamp-2">
+                        <h3 className="text-base font-bold leading-snug text-white">
                           {brief.title}
                         </h3>
                         {brief.seo_description && (
-                          <p className="text-xs text-slate-300 line-clamp-2">
+                          <p className="text-sm text-slate-300 leading-relaxed">
                             {brief.seo_description}
                           </p>
                         )}
                       </div>
-                      <span className="text-[11px] font-bold text-emerald-400 pt-1 inline-flex items-center gap-1">
-                        Quick Read <ArrowRight className="w-3 h-3" />
+                      <span className="text-xs font-bold text-emerald-400 pt-1 inline-flex items-center gap-1">
+                        Quick Read <ArrowRight className="w-3.5 h-3.5" />
                       </span>
                     </Link>
                   ))}
@@ -335,10 +341,14 @@ export default async function HomePage({
 
                     {/* 8:4 Asymmetric Grid (Identical to Today Trending) */}
                     <div className="grid lg:grid-cols-12 gap-5 items-start">
-                      {/* Left 8 Cols: Lead Story */}
+                      {/* Left 8 Cols (or full width if no side cards): Lead Story */}
                       <Link
                         href={getArticleHref(block.lead)}
-                        className="lg:col-span-8 group block space-y-3 lg:pr-5 lg:border-r lg:border-slate-200"
+                        className={`${
+                          block.side.length > 0
+                            ? 'lg:col-span-8 lg:pr-5 lg:border-r lg:border-slate-200'
+                            : 'lg:col-span-12'
+                        } group block space-y-3`}
                       >
                         <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-slate-100">
                           {block.lead.featured_image ? (
@@ -360,19 +370,20 @@ export default async function HomePage({
                         </div>
 
                         <div className="space-y-1.5">
-                          <h3 className="text-xl sm:text-2xl lg:text-[24px] font-bold text-slate-950 group-hover:text-blue-700 transition leading-snug line-clamp-2">
+                          <h3 className="text-xl sm:text-2xl lg:text-[24px] font-bold text-slate-950 group-hover:text-blue-700 transition leading-snug">
                             {block.lead.title}
                           </h3>
                           {block.lead.seo_description && (
-                            <p className="text-xs sm:text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
                               {block.lead.seo_description}
                             </p>
                           )}
                         </div>
                       </Link>
 
-                      {/* Right 4 Cols: 2 Stacked Cards */}
-                      <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-4">
+                      {/* Right 4 Cols: 2 Stacked Cards (only if unused stories exist) */}
+                      {block.side.length > 0 && (
+                        <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-4">
                         {block.side.map((item) => (
                           <Link
                             key={item.id}
@@ -405,7 +416,8 @@ export default async function HomePage({
                             </div>
                           </Link>
                         ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </section>
 
